@@ -3,7 +3,13 @@
     "allow": [
       "Bash(wc:*)",
       "Bash(flutter pub get:*)",
-      "Bash(xcrun simctl:*)"
+      "Bash(xcrun simctl:*)",
+      "Bash(flutter build:*)",
+      "Bash(flutter clean:*)",
+      "Bash(flutter devices:*)",
+      "Bash(pod install:*)",
+      "Bash(flutter run:*)",
+      "Bash(flutter analyze:*)"
     ]
   }
 }

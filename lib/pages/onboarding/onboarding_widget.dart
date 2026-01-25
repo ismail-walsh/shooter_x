@@ -49,7 +49,7 @@ class _OnboardingWidgetState extends State<OnboardingWidget> {
       },
       child: Scaffold(
         key: scaffoldKey,
-        backgroundColor: FlutterFlowTheme.of(context).alternate,
+        backgroundColor: Colors.black,
         body: SafeArea(
           top: true,
           child: Padding(
@@ -76,15 +76,7 @@ class _OnboardingWidgetState extends State<OnboardingWidget> {
                               children: [
                                 Stack(
                                   children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(8.0),
-                                      child: Image.asset(
-                                        'assets/images/revisedonabord.png',
-                                        width: 415.4,
-                                        height: 812.51,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
+                                    
                                     Padding(
                                       padding: EdgeInsets.all(12.0),
                                       child: Column(
@@ -121,7 +113,7 @@ class _OnboardingWidgetState extends State<OnboardingWidget> {
                                                 EdgeInsetsDirectional.fromSTEB(
                                                     12.0, 4.0, 12.0, 0.0),
                                             child: Text(
-                                              'Your new shooting companion. Any field. Any target.',
+                                              'Your shooting companion. Any discipline, competition or casual.',
                                               textAlign: TextAlign.center,
                                               style:
                                                   FlutterFlowTheme.of(context)
@@ -267,7 +259,7 @@ class _OnboardingWidgetState extends State<OnboardingWidget> {
                                             borderRadius:
                                                 BorderRadius.circular(12.0),
                                             child: Image.asset(
-                                              'assets/images/pexels-karolina-grabowska-5202431.jpg',
+                                              'assets/images/pexels-karolina-grabowska-5202440.jpg',
                                               width: double.infinity,
                                               height: 300.0,
                                               fit: BoxFit.cover,
@@ -359,7 +351,7 @@ class _OnboardingWidgetState extends State<OnboardingWidget> {
                                             borderRadius:
                                                 BorderRadius.circular(12.0),
                                             child: Image.asset(
-                                              'assets/images/pexels-yosstraore-2607423.jpg',
+                                              'assets/images/shadowdeer.png',
                                               width: double.infinity,
                                               height: 300.0,
                                               fit: BoxFit.cover,
@@ -451,7 +443,7 @@ class _OnboardingWidgetState extends State<OnboardingWidget> {
                                             borderRadius:
                                                 BorderRadius.circular(12.0),
                                             child: Image.asset(
-                                              'assets/images/pexels-tima-miroshnichenko-6204722.jpg',
+                                              'assets/images/pexels-tima-miroshnichenko-6090924.jpg',
                                               width: double.infinity,
                                               height: 300.0,
                                               fit: BoxFit.cover,
@@ -598,7 +590,7 @@ class _OnboardingWidgetState extends State<OnboardingWidget> {
                             ),
                             child: FFButtonWidget(
                               onPressed: () async {
-                                context.pushNamed(LoginWidget.routeName);
+                                Navigator.push(context, MaterialPageRoute(builder: (context) => LoginWidget()));
                               },
                               text: 'Login',
                               options: FFButtonOptions(
@@ -641,7 +633,7 @@ class _OnboardingWidgetState extends State<OnboardingWidget> {
                         ),
                         FFButtonWidget(
                           onPressed: () async {
-                            context.pushNamed(CreateAccountWidget.routeName);
+                            Navigator.push(context, MaterialPageRoute(builder: (context) => CreateAccountWidget()));
                           },
                           text: 'Register',
                           options: FFButtonOptions(
@@ -651,7 +643,7 @@ class _OnboardingWidgetState extends State<OnboardingWidget> {
                                 0.0, 0.0, 0.0, 0.0),
                             iconPadding: EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 0.0, 0.0),
-                            color: FlutterFlowTheme.of(context).primaryText,
+                            color: Colors.white,
                             textStyle: FlutterFlowTheme.of(context)
                                 .titleSmall
                                 .override(
@@ -663,8 +655,7 @@ class _OnboardingWidgetState extends State<OnboardingWidget> {
                                         .titleSmall
                                         .fontStyle,
                                   ),
-                                  color: FlutterFlowTheme.of(context)
-                                      .secondaryBackground,
+                                  color: Colors.black,
                                   letterSpacing: 0.0,
                                   fontWeight: FlutterFlowTheme.of(context)
                                       .titleSmall

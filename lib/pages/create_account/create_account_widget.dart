@@ -532,30 +532,29 @@ class _CreateAccountWidgetState extends State<CreateAccountWidget> {
                                       ),
                                     ),
                                   ),
-                                  Expanded(
-                                    child: Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                          0.0, 0.0, 0.0, 16.0),
-                                      child: Container(
-                                        width:
-                                            MediaQuery.sizeOf(context).width *
-                                                1.0,
-                                        height: 44.0,
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              Color(0xFF00A224),
-                                              Color(0xFF003C0D)
-                                            ],
-                                            stops: [0.2, 1.0],
-                                            begin:
-                                                AlignmentDirectional(1.0, 0.0),
-                                            end: AlignmentDirectional(-1.0, 0),
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(12.0),
+                                  Padding(
+                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                        0.0, 0.0, 0.0, 16.0),
+                                    child: Container(
+                                      width:
+                                          MediaQuery.sizeOf(context).width *
+                                              1.0,
+                                      height: 44.0,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Color(0xFF00A224),
+                                            Color(0xFF003C0D)
+                                          ],
+                                          stops: [0.2, 1.0],
+                                          begin:
+                                              AlignmentDirectional(1.0, 0.0),
+                                          end: AlignmentDirectional(-1.0, 0),
                                         ),
-                                        child: FFButtonWidget(
+                                        borderRadius:
+                                            BorderRadius.circular(12.0),
+                                      ),
+                                      child: FFButtonWidget(
                                           onPressed: () async {
                                             GoRouter.of(context)
                                                 .prepareAuthEvent();
@@ -609,7 +608,7 @@ class _CreateAccountWidgetState extends State<CreateAccountWidget> {
                                           text: 'Create Account',
                                           options: FFButtonOptions(
                                             width: double.infinity,
-                                            height: 100.0,
+                                            height: 44.0,
                                             padding:
                                                 EdgeInsetsDirectional.fromSTEB(
                                                     0.0, 0.0, 0.0, 0.0),
@@ -657,7 +656,6 @@ class _CreateAccountWidgetState extends State<CreateAccountWidget> {
                                         ),
                                       ),
                                     ),
-                                  ),
                                   Padding(
                                     padding: EdgeInsetsDirectional.fromSTEB(
                                         0.0, 0.0, 0.0, 24.0),
@@ -729,8 +727,8 @@ class _CreateAccountWidgetState extends State<CreateAccountWidget> {
                                                                   .labelLarge
                                                                   .fontStyle,
                                                         ),
-                                              ),
-                                            ),
+                                                  ),
+                                      ),
                                           ),
                                         ],
                                       ),
@@ -881,8 +879,7 @@ class _CreateAccountWidgetState extends State<CreateAccountWidget> {
                                         hoverColor: Colors.transparent,
                                         highlightColor: Colors.transparent,
                                         onTap: () async {
-                                          context
-                                              .pushNamed(LoginWidget.routeName);
+                                          context.pushNamed(LoginWidget.routeName);
                                         },
                                         child: RichText(
                                           textScaler:
@@ -890,67 +887,54 @@ class _CreateAccountWidgetState extends State<CreateAccountWidget> {
                                           text: TextSpan(
                                             children: [
                                               TextSpan(
-                                                text:
-                                                    'Already have an account? ',
-                                                style: TextStyle(),
-                                              ),
-                                              TextSpan(
-                                                text: ' Sign In here',
-                                                style: FlutterFlowTheme.of(
-                                                        context)
+                                                text: 'Already have an account? ',
+                                                style: FlutterFlowTheme.of(context)
                                                     .bodyMedium
                                                     .override(
                                                       font: GoogleFonts.inter(
                                                         fontWeight:
-                                                            FontWeight.w600,
+                                                            FlutterFlowTheme.of(context)
+                                                                .bodyMedium
+                                                                .fontWeight,
                                                         fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
+                                                            FlutterFlowTheme.of(context)
                                                                 .bodyMedium
                                                                 .fontStyle,
                                                       ),
-                                                      color:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .primary,
                                                       letterSpacing: 0.0,
                                                       fontWeight:
-                                                          FontWeight.w600,
+                                                          FlutterFlowTheme.of(context)
+                                                              .bodyMedium
+                                                              .fontWeight,
                                                       fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
+                                                          FlutterFlowTheme.of(context)
+                                                              .bodyMedium
+                                                              .fontStyle,
+                                                    ),
+                                              ),
+                                              TextSpan(
+                                                text: 'Sign In here',
+                                                style: FlutterFlowTheme.of(context)
+                                                    .bodyMedium
+                                                    .override(
+                                                      font: GoogleFonts.inter(
+                                                        fontWeight: FontWeight.w600,
+                                                        fontStyle:
+                                                            FlutterFlowTheme.of(context)
+                                                                .bodyMedium
+                                                                .fontStyle,
+                                                      ),
+                                                      color: FlutterFlowTheme.of(context).primary,
+                                                      letterSpacing: 0.0,
+                                                      fontWeight: FontWeight.w600,
+                                                      fontStyle:
+                                                          FlutterFlowTheme.of(context)
                                                               .bodyMedium
                                                               .fontStyle,
                                                     ),
                                               )
                                             ],
-                                            style: FlutterFlowTheme.of(context)
-                                                .bodyMedium
-                                                .override(
-                                                  font: GoogleFonts.inter(
-                                                    fontWeight:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .bodyMedium
-                                                            .fontWeight,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .bodyMedium
-                                                            .fontStyle,
-                                                  ),
-                                                  letterSpacing: 0.0,
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontStyle,
-                                                ),
+                                            style: FlutterFlowTheme.of(context).bodyMedium,
                                           ),
                                         ),
                                       ),
