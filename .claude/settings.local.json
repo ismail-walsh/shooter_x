@@ -9,7 +9,16 @@
       "Bash(flutter devices:*)",
       "Bash(pod install:*)",
       "Bash(flutter run:*)",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(open:*)",
+      "Bash(xcodebuild:*)",
+      "Bash(flutter doctor:*)",
+      "Bash(while read f)",
+      "Bash(do wc -l \"$f\")",
+      "Bash(done)",
+      "Bash(find lib/pages -name \"*_model.dart\" -exec sh -c 'wc -l \"\"$1\"\" | grep -E \"\"^[0-9]+ \"\" | awk \"\"{if \\(\\\\$1 < 20\\) print \\\\$0}\"\"' _ {} ;)",
+      "Bash(tee:*)",
+      "Bash(dart analyze:*)"
     ]
   }
 }

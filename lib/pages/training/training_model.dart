@@ -19,6 +19,9 @@ class TrainingModel extends FlutterFlowModel<TrainingWidget> {
   Stream<List<UsersRow>>? containerSupabaseStream2;
   Stream<List<DisciplinesRow>>? listViewSupabaseStream;
 
+  /// Selected discipline for filtering training modules. Null = show all.
+  String? selectedDiscipline;
+
   @override
   void initState(BuildContext context) {}
 

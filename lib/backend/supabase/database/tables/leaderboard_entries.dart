@@ -21,15 +21,25 @@ class LeaderboardEntriesRow extends SupabaseDataRow {
   String? get userId => getField<String>('user_id');
   set userId(String? value) => setField<String>('user_id', value);
 
-  String? get clubId => getField<String>('club_id');
-  set clubId(String? value) => setField<String>('club_id', value);
+  String? get eventId => getField<String>('event_id');
+  set eventId(String? value) => setField<String>('event_id', value);
+
+  String? get competitionName => getField<String>('competition_name');
+  set competitionName(String? value) =>
+      setField<String>('competition_name', value);
+
+  int? get rank => getField<int>('rank');
+  set rank(int? value) => setField<int>('rank', value);
 
   double? get score => getField<double>('score');
   set score(double? value) => setField<double>('score', value);
 
-  DateTime? get updatedAt => getField<DateTime>('updated_at');
-  set updatedAt(DateTime? value) => setField<DateTime>('updated_at', value);
+  int? get level => getField<int>('level');
+  set level(int? value) => setField<int>('level', value);
 
-  String? get competitionId => getField<String>('competition_id');
-  set competitionId(String? value) => setField<String>('competition_id', value);
+  int? get xp => getField<int>('xp');
+  set xp(int? value) => setField<int>('xp', value);
+
+  DateTime? get createdAt => getField<DateTime>('created_at');
+  set createdAt(DateTime? value) => setField<DateTime>('created_at', value);
 }

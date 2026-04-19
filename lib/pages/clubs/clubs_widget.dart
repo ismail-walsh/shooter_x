@@ -164,12 +164,21 @@ class _ClubsWidgetState extends State<ClubsWidget> {
                                         return ClipRRect(
                                           borderRadius:
                                               BorderRadius.circular(50.0),
-                                          child: Image.network(
-                                            imageClubsRow!.profileImg!,
-                                            width: 150.0,
-                                            height: 150.0,
-                                            fit: BoxFit.cover,
-                                          ),
+                                          child: imageClubsRow?.profileImg != null
+                                              ? Image.network(
+                                                  imageClubsRow!.profileImg!,
+                                                  width: 150.0,
+                                                  height: 150.0,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error, stackTrace) =>
+                                                      Icon(Icons.groups, size: 35.0),
+                                                )
+                                              : Icon(
+                                                  Icons.group_work,
+                                                  size: 35.0,
+                                                  color: FlutterFlowTheme.of(context)
+                                                      .secondaryText,
+                                                ),
                                         );
                                       },
                                     ),
@@ -299,17 +308,26 @@ class _ClubsWidgetState extends State<ClubsWidget> {
                                       child: ClipRRect(
                                         borderRadius:
                                             BorderRadius.circular(50.0),
-                                        child: CachedNetworkImage(
-                                          fadeInDuration:
-                                              Duration(milliseconds: 500),
-                                          fadeOutDuration:
-                                              Duration(milliseconds: 500),
-                                          imageUrl:
-                                              containerUsersRow!.profileImg!,
-                                          width: 100.0,
-                                          height: 100.0,
-                                          fit: BoxFit.cover,
-                                        ),
+                                        child: containerUsersRow?.profileImg != null
+                                            ? CachedNetworkImage(
+                                                fadeInDuration:
+                                                    Duration(milliseconds: 500),
+                                                fadeOutDuration:
+                                                    Duration(milliseconds: 500),
+                                                imageUrl:
+                                                    containerUsersRow!.profileImg!,
+                                                width: 100.0,
+                                                height: 100.0,
+                                                fit: BoxFit.cover,
+                                                errorWidget: (context, url, error) =>
+                                                    Icon(Icons.person, size: 35.0),
+                                              )
+                                            : Icon(
+                                                Icons.account_circle,
+                                                size: 35.0,
+                                                color: FlutterFlowTheme.of(context)
+                                                    .secondaryText,
+                                              ),
                                       ),
                                     ),
                                   ),
@@ -335,9 +353,9 @@ class _ClubsWidgetState extends State<ClubsWidget> {
           child: Padding(
             padding: EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 0.0, 0.0),
             child: FutureBuilder<List<ClubMembershipsRow>>(
-              future: ClubMembershipsTable().querySingleRow(
+              future: ClubMembershipsTable().queryRows(
                 queryFn: (q) => q.eqOrNull(
-                  'id',
+                  'user_id',
                   currentUserUid,
                 ),
               ),
@@ -369,130 +387,93 @@ class _ClubsWidgetState extends State<ClubsWidget> {
                     mainAxisSize: MainAxisSize.max,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Padding(
-                        padding:
-                            EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 16.0, 0.0),
-                        child: Container(
-                          width: double.infinity,
-                          height: 80.0,
-                          decoration: BoxDecoration(),
-                          child: FutureBuilder<List<ClubsRow>>(
-                            future: ClubsTable().queryRows(
-                              queryFn: (q) => q.eqOrNull(
-                                'id',
-                                columnClubMembershipsRow?.id,
-                              ),
-                            ),
-                            builder: (context, snapshot) {
-                              // Customize what your widget looks like when it's loading.
-                              if (!snapshot.hasData) {
-                                return Center(
-                                  child: SizedBox(
-                                    width: 50.0,
-                                    height: 50.0,
-                                    child: CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        FlutterFlowTheme.of(context).primary,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }
-                              List<ClubsRow> listViewClubsRowList =
-                                  snapshot.data!;
+                      Container(
+                        width: double.infinity,
+                        height: 80.0,
+                        child: StreamBuilder<List<ClubsRow>>(
+                          stream: SupaFlow.client
+                              .from("clubs")
+                              .stream(primaryKey: ['id'])
+                              .eq('ho_approved', true)
+                              .limit(10)
+                              .map((list) => list.map((item) => ClubsRow(item)).toList()),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return Center(child: CircularProgressIndicator());
+                            }
 
-                              return ListView.separated(
-                                padding: EdgeInsets.fromLTRB(
-                                  16.0,
-                                  0,
-                                  16.0,
-                                  0,
-                                ),
-                                scrollDirection: Axis.horizontal,
-                                itemCount: listViewClubsRowList.length,
-                                separatorBuilder: (_, __) =>
-                                    SizedBox(width: 8.0),
-                                itemBuilder: (context, listViewIndex) {
-                                  final listViewClubsRow =
-                                      listViewClubsRowList[listViewIndex];
-                                  return Column(
-                                    mainAxisSize: MainAxisSize.max,
+                            final clubs = snapshot.data!;
+
+                            if (clubs.isEmpty) {
+                              return SizedBox.shrink();
+                            }
+
+                            return ListView.separated(
+                              padding: EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
+                              scrollDirection: Axis.horizontal,
+                              separatorBuilder: (_, __) => SizedBox(width: 12.0),
+                              itemCount: clubs.length,
+                              itemBuilder: (context, index) {
+                                final club = clubs[index];
+                                return InkWell(
+                                  onTap: () {
+                                    context.pushNamed(
+                                      ClubProfileWidget.routeName,
+                                      queryParameters: {
+                                        'clubId': serializeParam(club.id, ParamType.String),
+                                      }.withoutNulls,
+                                    );
+                                  },
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Container(
-                                        width: 50.0,
-                                        height: 50.0,
+                                        width: 60.0,
+                                        height: 60.0,
                                         decoration: BoxDecoration(
-                                          color: FlutterFlowTheme.of(context)
-                                              .secondaryBackground,
-                                          image: DecorationImage(
-                                            fit: BoxFit.cover,
-                                            image: Image.asset(
-                                              'assets/images/Gift-Voucher-images-1-1-300x228.png',
-                                            ).image,
+                                          color: FlutterFlowTheme.of(context).alternate,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: FlutterFlowTheme.of(context).alternate,
+                                            width: 1.0,
                                           ),
-                                          borderRadius:
-                                              BorderRadius.circular(5.0),
                                         ),
-                                      ),
-                                      Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
-                                            0.0, 5.0, 0.0, 0.0),
-                                        child: Text(
-                                          'Lea Marston',
-                                          style: FlutterFlowTheme.of(context)
-                                              .bodyMedium
-                                              .override(
-                                                font: GoogleFonts.inter(
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontStyle,
+                                        child: ClipOval(
+                                          child: club.profileImg != null && club.profileImg!.isNotEmpty
+                                              ? Image.network(
+                                                  club.profileImg!,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error, stackTrace) =>
+                                                      Icon(Icons.groups, size: 30.0),
+                                                )
+                                              : Icon(
+                                                  Icons.groups,
+                                                  size: 30.0,
+                                                  color: FlutterFlowTheme.of(context).secondaryText,
                                                 ),
-                                                fontSize: 10.0,
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontStyle,
-                                              ),
                                         ),
                                       ),
                                     ],
-                                  );
-                                },
-                              );
-                            },
-                          ),
+                                  ),
+                                );
+                              },
+                            );
+                          },
                         ),
                       ),
                       Padding(
                         padding: EdgeInsetsDirectional.fromSTEB(
-                            16.0, 5.0, 0.0, 10.0),
+                            16.0, 16.0, 0.0, 10.0),
                         child: Text(
                           'Discover New Clubs',
                           style:
                               FlutterFlowTheme.of(context).bodyLarge.override(
                                     font: GoogleFonts.inter(
                                       fontWeight: FontWeight.bold,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyLarge
-                                          .fontStyle,
                                     ),
+                                    fontSize: 18.0,
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.bold,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyLarge
-                                        .fontStyle,
                                   ),
                         ),
                       ),
@@ -531,7 +512,6 @@ class _ClubsWidgetState extends State<ClubsWidget> {
 
                             return Container(
                               width: double.infinity,
-                              height: 150.0,
                               decoration: BoxDecoration(),
                               child: StreamBuilder<List<ClubsRow>>(
                                 stream: _model.listViewSupabaseStream ??=
@@ -563,99 +543,168 @@ class _ClubsWidgetState extends State<ClubsWidget> {
                                       ),
                                     );
                                   }
-                                  List<ClubsRow> listViewClubsRowList =
+                                  List<ClubsRow> gridViewClubsRowList =
                                       snapshot.data!;
 
-                                  return ListView.separated(
+                                  return Padding(
                                     padding: EdgeInsets.fromLTRB(
                                       16.0,
                                       0,
                                       16.0,
                                       0,
                                     ),
-                                    scrollDirection: Axis.horizontal,
-                                    itemCount: listViewClubsRowList.length,
-                                    separatorBuilder: (_, __) =>
-                                        SizedBox(width: 8.0),
-                                    itemBuilder: (context, listViewIndex) {
-                                      final listViewClubsRow =
-                                          listViewClubsRowList[listViewIndex];
-                                      return InkWell(
-                                        splashColor: Colors.transparent,
-                                        focusColor: Colors.transparent,
-                                        hoverColor: Colors.transparent,
-                                        highlightColor: Colors.transparent,
-                                        onTap: () async {
-                                          context.pushNamed(
-                                            ClubProfileWidget.routeName,
-                                            queryParameters: {
-                                              'clubId': serializeParam(
-                                                listViewClubsRow.id,
-                                                ParamType.String,
-                                              ),
-                                            }.withoutNulls,
-                                          );
-                                        },
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(8.0),
-                                          child: Container(
-                                            width: 255.0,
-                                            height: 150.0,
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .primaryBackground,
-                                              image: DecorationImage(
-                                                fit: BoxFit.cover,
-                                                image: Image.asset(
-                                                  'assets/images/Wednesbury-Marksmen-1994-Pistol-Rifle-Club.jpg',
-                                                ).image,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8.0),
-                                              border: Border.all(
+                                    child: GridView.builder(
+                                      padding: EdgeInsets.zero,
+                                      shrinkWrap: true,
+                                      physics: NeverScrollableScrollPhysics(),
+                                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        crossAxisSpacing: 12.0,
+                                        mainAxisSpacing: 12.0,
+                                        childAspectRatio: 1.5,
+                                      ),
+                                      itemCount: gridViewClubsRowList.length > 2 ? 2 : gridViewClubsRowList.length,
+                                      itemBuilder: (context, gridViewIndex) {
+                                        final gridViewClubsRow =
+                                            gridViewClubsRowList[gridViewIndex];
+                                        return InkWell(
+                                          splashColor: Colors.transparent,
+                                          focusColor: Colors.transparent,
+                                          hoverColor: Colors.transparent,
+                                          highlightColor: Colors.transparent,
+                                          onTap: () async {
+                                            context.pushNamed(
+                                              ClubProfileWidget.routeName,
+                                              queryParameters: {
+                                                'clubId': serializeParam(
+                                                  gridViewClubsRow.id,
+                                                  ParamType.String,
+                                                ),
+                                              }.withoutNulls,
+                                            );
+                                          },
+                                          child: ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(8.0),
+                                            child: Container(
+                                              decoration: BoxDecoration(
                                                 color:
                                                     FlutterFlowTheme.of(context)
-                                                        .alternate,
-                                                width: 1.0,
+                                                        .alternate, // Always show background
+                                                image: gridViewClubsRow.coverImg != null && gridViewClubsRow.coverImg!.isNotEmpty
+                                                  ? DecorationImage(
+                                                      fit: BoxFit.cover,
+                                                      image: CachedNetworkImageProvider(
+                                                        gridViewClubsRow.coverImg!,
+                                                      ),
+                                                      onError: (exception, stackTrace) {
+                                                        print('Error loading club image: $exception');
+                                                      },
+                                                    )
+                                                  : DecorationImage(
+                                                      fit: BoxFit.cover,
+                                                      image: Image.asset(
+                                                        'assets/images/Wednesbury-Marksmen-1994-Pistol-Rifle-Club.jpg',
+                                                      ).image,
+                                                    ),
+                                                borderRadius:
+                                                    BorderRadius.circular(8.0),
+                                                border: Border.all(
+                                                  color:
+                                                      FlutterFlowTheme.of(context)
+                                                          .alternate,
+                                                  width: 1.0,
+                                                ),
                                               ),
-                                            ),
-                                            child: Padding(
-                                              padding: EdgeInsetsDirectional
-                                                  .fromSTEB(
-                                                      10.0, 10.0, 10.0, 10.0),
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.max,
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.end,
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.max,
+                                              child: gridViewClubsRow.coverImg == null || gridViewClubsRow.coverImg!.isEmpty
+                                                ? Stack(
                                                     children: [
-                                                      Align(
-                                                        alignment:
-                                                            AlignmentDirectional(
-                                                                0.0, -1.0),
+                                                      Container(
+                                                        decoration: BoxDecoration(
+                                                          borderRadius:
+                                                              BorderRadius.circular(8.0),
+                                                          gradient: LinearGradient(
+                                                            colors: [
+                                                              Colors.transparent,
+                                                              Colors.black.withOpacity(0.7),
+                                                            ],
+                                                            stops: [0.5, 1.0],
+                                                            begin: AlignmentDirectional(0.0, -1.0),
+                                                            end: AlignmentDirectional(0.0, 1.0),
+                                                          ),
+                                                        ),
                                                         child: Padding(
-                                                          padding:
-                                                              EdgeInsetsDirectional
-                                                                  .fromSTEB(
-                                                                      0.0,
-                                                                      0.0,
-                                                                      0.0,
-                                                                      2.0),
-                                                          child: Text(
-                                                            valueOrDefault<
-                                                                String>(
-                                                              listViewClubsRow
-                                                                  .name,
+                                                          padding: EdgeInsetsDirectional
+                                                              .fromSTEB(
+                                                                  10.0, 10.0, 10.0, 10.0),
+                                                          child: Column(
+                                                            mainAxisSize: MainAxisSize.max,
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment.end,
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment.start,
+                                                            children: [
+                                                              Text(
+                                                                valueOrDefault<String>(
+                                                                  gridViewClubsRow.name,
+                                                                  '[Club Name]',
+                                                                ).maybeHandleOverflow(
+                                                                  maxChars: 20,
+                                                                  replacement: '…',
+                                                                ),
+                                                                style: FlutterFlowTheme
+                                                                        .of(context)
+                                                                    .bodyLarge
+                                                                    .override(
+                                                                      font:
+                                                                          GoogleFonts
+                                                                              .inter(
+                                                                        fontWeight:
+                                                                            FontWeight
+                                                                                .w600,
+                                                                      ),
+                                                                      fontSize: 14.0,
+                                                                      letterSpacing: 0.0,
+                                                                      color: Colors.white,
+                                                                    ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  )
+                                                : Container(
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(8.0),
+                                                      gradient: LinearGradient(
+                                                        colors: [
+                                                          Colors.transparent,
+                                                          Colors.black.withOpacity(0.7),
+                                                        ],
+                                                        stops: [0.5, 1.0],
+                                                        begin: AlignmentDirectional(0.0, -1.0),
+                                                        end: AlignmentDirectional(0.0, 1.0),
+                                                      ),
+                                                    ),
+                                                    child: Padding(
+                                                      padding: EdgeInsetsDirectional
+                                                          .fromSTEB(
+                                                              10.0, 10.0, 10.0, 10.0),
+                                                      child: Column(
+                                                        mainAxisSize: MainAxisSize.max,
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment.end,
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment.start,
+                                                        children: [
+                                                          Text(
+                                                            valueOrDefault<String>(
+                                                              gridViewClubsRow.name,
                                                               '[Club Name]',
                                                             ).maybeHandleOverflow(
-                                                              maxChars: 15,
+                                                              maxChars: 20,
                                                               replacement: '…',
                                                             ),
                                                             style: FlutterFlowTheme
@@ -668,89 +717,21 @@ class _ClubsWidgetState extends State<ClubsWidget> {
                                                                     fontWeight:
                                                                         FontWeight
                                                                             .w600,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyLarge
-                                                                        .fontStyle,
                                                                   ),
-                                                                  fontSize:
-                                                                      12.0,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyLarge
-                                                                      .fontStyle,
+                                                                  fontSize: 14.0,
+                                                                  letterSpacing: 0.0,
+                                                                  color: Colors.white,
                                                                 ),
                                                           ),
-                                                        ),
+                                                        ],
                                                       ),
-                                                    ],
+                                                    ),
                                                   ),
-                                                  Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.max,
-                                                    children: [
-                                                      Icon(
-                                                        Icons.groups_rounded,
-                                                        color:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .primaryText,
-                                                        size: 24.0,
-                                                      ),
-                                                      Padding(
-                                                        padding:
-                                                            EdgeInsetsDirectional
-                                                                .fromSTEB(
-                                                                    10.0,
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0),
-                                                        child: Text(
-                                                          '3,000 Members',
-                                                          style: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .bodyMedium
-                                                              .override(
-                                                                font:
-                                                                    GoogleFonts
-                                                                        .inter(
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                                fontSize: 10.0,
-                                                                letterSpacing:
-                                                                    0.0,
-                                                                fontWeight: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontWeight,
-                                                                fontStyle: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ].divide(SizedBox(height: 4.0)),
-                                              ),
                                             ),
                                           ),
-                                        ),
-                                      );
-                                    },
+                                        );
+                                      },
+                                    ),
                                   );
                                 },
                               ),
@@ -760,22 +741,17 @@ class _ClubsWidgetState extends State<ClubsWidget> {
                       ),
                       Padding(
                         padding: EdgeInsetsDirectional.fromSTEB(
-                            16.0, 10.0, 0.0, 10.0),
+                            16.0, 16.0, 0.0, 10.0),
                         child: Text(
                           'My Clubs',
                           style:
                               FlutterFlowTheme.of(context).bodyLarge.override(
                                     font: GoogleFonts.inter(
                                       fontWeight: FontWeight.bold,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyLarge
-                                          .fontStyle,
                                     ),
+                                    fontSize: 18.0,
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.bold,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyLarge
-                                        .fontStyle,
                                   ),
                         ),
                       ),
@@ -858,6 +834,18 @@ class _ClubsWidgetState extends State<ClubsWidget> {
                             ['Double Deuce'],
                           ),
                           wrapped: true,
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 16.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildClubActionButton(context, Icons.location_on, 'Find a Range', () {}),
+                            _buildClubActionButton(context, Icons.schedule, 'My Activity', () {}),
+                            _buildClubActionButton(context, Icons.location_on, 'Find a Range', () {}),
+                            _buildClubActionButton(context, Icons.emoji_events, 'Compete', () {}),
+                          ],
                         ),
                       ),
                       Padding(
@@ -1068,10 +1056,12 @@ class _ClubsWidgetState extends State<ClubsWidget> {
                                           focusColor: Colors.transparent,
                                           hoverColor: Colors.transparent,
                                           highlightColor: Colors.transparent,
-                                          onTap: () async {
-                                            await launchURL(
-                                                columnClubsRow!.websiteUrl!);
-                                          },
+                                          onTap: columnClubsRow?.websiteUrl != null
+                                              ? () async {
+                                                  await launchURL(
+                                                      columnClubsRow!.websiteUrl!);
+                                                }
+                                              : null,
                                           child: Column(
                                             mainAxisSize: MainAxisSize.max,
                                             children: [
@@ -1267,6 +1257,177 @@ class _ClubsWidgetState extends State<ClubsWidget> {
                             },
                           ),
                         ),
+                      ),
+                      // Detailed clubs list section
+                      Padding(
+                        padding: EdgeInsetsDirectional.fromSTEB(16.0, 24.0, 0.0, 10.0),
+                        child: Text(
+                          'All Clubs',
+                          style: FlutterFlowTheme.of(context).bodyLarge.override(
+                            font: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                            fontSize: 18.0,
+                            letterSpacing: 0.0,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      StreamBuilder<List<ClubsRow>>(
+                        stream: SupaFlow.client
+                            .from("clubs")
+                            .stream(primaryKey: ['id'])
+                            .eq('ho_approved', true)
+                            .limit(10)
+                            .map((list) => list.map((item) => ClubsRow(item)).toList()),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return Center(
+                              child: SizedBox(
+                                width: 50.0,
+                                height: 50.0,
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    FlutterFlowTheme.of(context).primary,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+
+                          final clubs = snapshot.data!;
+
+                          if (clubs.isEmpty) {
+                            return Padding(
+                              padding: EdgeInsets.all(24.0),
+                              child: Center(
+                                child: Text(
+                                  'No clubs available',
+                                  style: FlutterFlowTheme.of(context).bodySmall.override(
+                                    font: GoogleFonts.inter(),
+                                    color: FlutterFlowTheme.of(context).secondaryText,
+                                    letterSpacing: 0.0,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+
+                          return ListView.separated(
+                            shrinkWrap: true,
+                            physics: NeverScrollableScrollPhysics(),
+                            padding: EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
+                            separatorBuilder: (_, __) => SizedBox(height: 16.0),
+                            itemCount: clubs.length,
+                            itemBuilder: (context, index) {
+                              final club = clubs[index];
+                              return InkWell(
+                                onTap: () {
+                                  context.pushNamed(
+                                    ClubProfileWidget.routeName,
+                                    queryParameters: {
+                                      'clubId': serializeParam(club.id, ParamType.String),
+                                    }.withoutNulls,
+                                  );
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.all(16.0),
+                                  decoration: BoxDecoration(
+                                    color: FlutterFlowTheme.of(context).secondaryBackground,
+                                    borderRadius: BorderRadius.circular(8.0),
+                                    border: Border.all(
+                                      color: FlutterFlowTheme.of(context).alternate,
+                                      width: 1.0,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      // Club logo
+                                      Container(
+                                        width: 60.0,
+                                        height: 60.0,
+                                        decoration: BoxDecoration(
+                                          color: FlutterFlowTheme.of(context).alternate,
+                                          borderRadius: BorderRadius.circular(8.0),
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(8.0),
+                                          child: club.profileImg != null && club.profileImg!.isNotEmpty
+                                              ? Image.network(
+                                                  club.profileImg!,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error, stackTrace) =>
+                                                      Icon(Icons.groups, size: 30.0),
+                                                )
+                                              : Icon(
+                                                  Icons.groups,
+                                                  size: 30.0,
+                                                  color: FlutterFlowTheme.of(context).secondaryText,
+                                                ),
+                                        ),
+                                      ),
+                                      SizedBox(width: 12.0),
+                                      // Club info
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              club.name ?? 'Club',
+                                              style: FlutterFlowTheme.of(context).bodyLarge.override(
+                                                font: GoogleFonts.inter(),
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: 0.0,
+                                              ),
+                                            ),
+                                            if (club.description != null && club.description!.isNotEmpty) ...[
+                                              SizedBox(height: 4.0),
+                                              Text(
+                                                club.description!,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: FlutterFlowTheme.of(context).bodySmall.override(
+                                                  font: GoogleFonts.inter(),
+                                                  color: FlutterFlowTheme.of(context).secondaryText,
+                                                  fontSize: 12.0,
+                                                  letterSpacing: 0.0,
+                                                ),
+                                              ),
+                                            ],
+                                            if (club.location != null && club.location!.isNotEmpty) ...[
+                                              SizedBox(height: 4.0),
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.location_on,
+                                                    size: 12.0,
+                                                    color: FlutterFlowTheme.of(context).secondaryText,
+                                                  ),
+                                                  SizedBox(width: 4.0),
+                                                  Text(
+                                                    club.location!,
+                                                    style: FlutterFlowTheme.of(context).bodySmall.override(
+                                                      font: GoogleFonts.inter(),
+                                                      color: FlutterFlowTheme.of(context).secondaryText,
+                                                      fontSize: 11.0,
+                                                      letterSpacing: 0.0,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      Icon(
+                                        Icons.chevron_right,
+                                        color: FlutterFlowTheme.of(context).secondaryText,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
                       ),
                       Container(
                         width: MediaQuery.sizeOf(context).width * 1.0,
@@ -2017,6 +2178,41 @@ class _ClubsWidgetState extends State<ClubsWidget> {
               },
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClubActionButton(BuildContext context, IconData icon, String label, VoidCallback onTap) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 50.0,
+              height: 50.0,
+              decoration: BoxDecoration(
+                color: FlutterFlowTheme.of(context).secondaryBackground,
+                borderRadius: BorderRadius.circular(8.0),
+                border: Border.all(
+                  color: FlutterFlowTheme.of(context).alternate,
+                ),
+              ),
+              child: Icon(icon, size: 24.0, color: FlutterFlowTheme.of(context).primary),
+            ),
+            SizedBox(height: 4.0),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: FlutterFlowTheme.of(context).bodySmall.override(
+                font: GoogleFonts.inter(),
+                fontSize: 10.0,
+                letterSpacing: 0.0,
+              ),
+            ),
+          ],
         ),
       ),
     );

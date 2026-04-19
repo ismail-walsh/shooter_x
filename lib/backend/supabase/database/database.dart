@@ -23,3 +23,4 @@ export 'tables/disciplines.dart';
 export 'tables/leaderboard_entries.dart';
 export 'tables/competition_results.dart';
 export 'tables/training_progress.dart';
+export 'tables/training_modules.dart';

@@ -107,6 +107,11 @@ dev_dependencies:
   lints: 4.0.0
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
+  patrol: ^3.14.0
+  mockito: ^5.4.4
+  build_runner: ^2.4.9
 
 
 flutter_launcher_icons:

@@ -1,8 +1,15 @@
 PODS:
   - app_links (0.0.2):
     - Flutter
+  - CocoaAsyncSocket (7.6.5)
   - Flutter (1.0.0)
+  - integration_test (0.0.1):
+    - Flutter
   - path_provider_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - patrol (0.0.1):
+    - CocoaAsyncSocket (~> 7.6)
     - Flutter
     - FlutterMacOS
   - shared_preferences_foundation (0.0.1):
@@ -22,20 +29,30 @@ PODS:
 DEPENDENCIES:
   - app_links (from `.symlinks/plugins/app_links/ios`)
   - Flutter (from `Flutter`)
+  - integration_test (from `.symlinks/plugins/integration_test/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
+  - patrol (from `.symlinks/plugins/patrol/darwin`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - sign_in_with_apple (from `.symlinks/plugins/sign_in_with_apple/ios`)
   - sqflite (from `.symlinks/plugins/sqflite/darwin`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
   - webview_flutter_wkwebview (from `.symlinks/plugins/webview_flutter_wkwebview/darwin`)
 
+SPEC REPOS:
+  trunk:
+    - CocoaAsyncSocket
+
 EXTERNAL SOURCES:
   app_links:
     :path: ".symlinks/plugins/app_links/ios"
   Flutter:
     :path: Flutter
+  integration_test:
+    :path: ".symlinks/plugins/integration_test/ios"
   path_provider_foundation:
     :path: ".symlinks/plugins/path_provider_foundation/darwin"
+  patrol:
+    :path: ".symlinks/plugins/patrol/darwin"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
   sign_in_with_apple:
@@ -49,8 +66,11 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   app_links: 3da4c36b46cac3bf24eb897f1a6ce80bda109874
+  CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
+  patrol: 5df5d241d7f95f0df12a6906bbf45acb43a1e537
   shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
   sign_in_with_apple: c5dcc141574c8c54d5ac99dd2163c0c72ad22418
   sqflite: c35dad70033b8862124f8337cc994a809fcd9fa3

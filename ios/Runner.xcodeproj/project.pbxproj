@@ -218,7 +218,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
+			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin\nfor framework in \"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/Flutter.framework\" \"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/App.framework\"; do\n  if [ -e \"$framework\" ]; then\n    xattr -cr \"$framework\" || true\n  fi\ndone";
 		};
 		4A839FFA64CF12C64064BE92 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
