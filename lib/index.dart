@@ -23,3 +23,9 @@ export '/pages/community_page/community_page_widget.dart'
 export '/pages/add_session/add_session_widget.dart' show AddSessionWidget;
 export '/pages/edit_profile/edit_profile_widget.dart' show EditProfileWidget;
 export '/pages/create_post/create_post_widget.dart' show CreatePostWidget;
+export '/pages/record_shoot/record_shoot_widget.dart' show RecordShootWidget;
+export '/pages/scan_target/scan_target_widget.dart' show ScanTargetWidget;
+export '/pages/find_range/find_range_widget.dart' show FindRangeWidget;
+export '/pages/leaderboard/leaderboard_widget.dart' show LeaderboardWidget;
+export '/pages/notifications/notifications_widget.dart' show NotificationsWidget;
+export '/pages/all_sessions/all_sessions_widget.dart' show AllSessionsWidget;

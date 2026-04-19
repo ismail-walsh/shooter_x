@@ -5,14 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
 
-import '/backend/supabase/supabase.dart';
-
 import '/auth/base_auth_user_provider.dart';
 
 import '/main.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
-import '/flutter_flow/lat_lng.dart';
-import '/flutter_flow/place.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'serialization_util.dart';
 
@@ -239,7 +234,37 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: CreatePostWidget.routeName,
           path: CreatePostWidget.routePath,
           builder: (context, params) => CreatePostWidget(),
-        )
+        ),
+        FFRoute(
+          name: RecordShootWidget.routeName,
+          path: RecordShootWidget.routePath,
+          builder: (context, params) => const RecordShootWidget(),
+        ),
+        FFRoute(
+          name: ScanTargetWidget.routeName,
+          path: ScanTargetWidget.routePath,
+          builder: (context, params) => const ScanTargetWidget(),
+        ),
+        FFRoute(
+          name: FindRangeWidget.routeName,
+          path: FindRangeWidget.routePath,
+          builder: (context, params) => const FindRangeWidget(),
+        ),
+        FFRoute(
+          name: LeaderboardWidget.routeName,
+          path: LeaderboardWidget.routePath,
+          builder: (context, params) => const LeaderboardWidget(),
+        ),
+        FFRoute(
+          name: NotificationsWidget.routeName,
+          path: NotificationsWidget.routePath,
+          builder: (context, params) => const NotificationsWidget(),
+        ),
+        FFRoute(
+          name: AllSessionsWidget.routeName,
+          path: AllSessionsWidget.routePath,
+          builder: (context, params) => const AllSessionsWidget(),
+        ),
       ].map((r) => r.toRoute(appStateNotifier)).toList(),
     );
 

@@ -195,30 +195,20 @@ extension TextStyleHelper on TextStyle {
     FontWeight? fontWeight, FontStyle? fontStyle,
     bool useGoogleFonts = false, TextDecoration? decoration,
     double? lineHeight, double? letterSpacing,
-    TextStyle? font,
   }) {
-    // When a pre-built TextStyle is passed as `font`, merge its properties in.
-    final base = font != null ? copyWith(
-      fontFamily: font.fontFamily,
-      fontFamilyFallback: font.fontFamilyFallback,
-      fontWeight: fontWeight ?? font.fontWeight ?? this.fontWeight,
-      fontStyle: fontStyle ?? font.fontStyle ?? this.fontStyle,
-    ) : this;
-
     if (useGoogleFonts && fontFamily != null) {
-      final gFont = GoogleFonts.getFont(fontFamily,
-          fontWeight: fontWeight ?? base.fontWeight,
-          fontStyle: fontStyle ?? base.fontStyle);
-      return gFont.copyWith(
-        color: color ?? base.color, fontSize: fontSize ?? base.fontSize,
-        letterSpacing: letterSpacing ?? base.letterSpacing,
-        fontWeight: fontWeight ?? base.fontWeight,
+      final font = GoogleFonts.getFont(fontFamily,
+          fontWeight: fontWeight ?? this.fontWeight,
+          fontStyle: fontStyle ?? this.fontStyle);
+      return font.copyWith(
+        color: color ?? this.color, fontSize: fontSize ?? this.fontSize,
+        letterSpacing: letterSpacing ?? this.letterSpacing,
+        fontWeight: fontWeight ?? this.fontWeight,
         decoration: decoration, height: lineHeight,
       );
     }
-    return base.copyWith(
-      fontFamily: fontFamily ?? base.fontFamily,
-      color: color, fontSize: fontSize,
+    return copyWith(
+      fontFamily: fontFamily, color: color, fontSize: fontSize,
       letterSpacing: letterSpacing, fontWeight: fontWeight,
       fontStyle: fontStyle, decoration: decoration, height: lineHeight,
     );

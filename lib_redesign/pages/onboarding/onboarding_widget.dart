@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/nav/nav.dart';
+import '/pages/login/login_widget.dart';
+import '/pages/create_account/create_account_widget.dart';
 
 class OnboardingWidget extends StatefulWidget {
   const OnboardingWidget({super.key});
