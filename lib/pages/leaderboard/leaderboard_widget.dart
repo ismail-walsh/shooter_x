@@ -7,9 +7,11 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/nav/nav.dart';
 import '/components/sx_shared_widgets.dart';
 import '/services/database_service.dart';
+import '/utils/sx_ranks.dart';
 
 class LeaderboardWidget extends StatefulWidget {
-  const LeaderboardWidget({super.key});
+  const LeaderboardWidget({super.key, this.clubId});
+  final String? clubId;
   static const String routeName = 'Leaderboard';
   static const String routePath = '/leaderboard';
 
@@ -33,6 +35,7 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
   @override
   void initState() {
     super.initState();
+    if (widget.clubId != null) _filter = 'Club';
     _loadLeaderboard();
   }
 
@@ -40,7 +43,8 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
     setState(() => _loading = true);
     try {
       final scope = _scopeMap[_filter] ?? 'overall';
-      final entries = await databaseService.getLeaderboardByScope(scope);
+      final entries = await databaseService.getLeaderboardByScope(
+          scope, clubId: widget.clubId);
       if (mounted) setState(() { _entries = entries; _loading = false; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
@@ -53,11 +57,14 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
     return '$xp XP';
   }
 
-  static String _badge(int rank) {
-    if (rank == 1) return '🥇';
-    if (rank == 2) return '🥈';
-    if (rank == 3) return '🥉';
-    return '';
+  static ({Color color, String label}) _podiumMeta(int podiumIndex) {
+    // podiumIndex: 0=2nd, 1=1st, 2=3rd
+    const metas = [
+      (color: Color(0xFFC0C0C0), label: '2ND'),
+      (color: Color(0xFFFFD700), label: '1ST'),
+      (color: Color(0xFFCD7F32), label: '3RD'),
+    ];
+    return metas[podiumIndex];
   }
 
   @override
@@ -189,14 +196,29 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(_badge(entry.rank ?? (pi + 1)),
-                      style: const TextStyle(fontSize: 18)),
+                  Builder(builder: (_) {
+                    final meta = _podiumMeta(pi);
+                    return Icon(Icons.military_tech_rounded,
+                        color: meta.color, size: 22);
+                  }),
                   const SizedBox(height: 4),
                   Text((entry.displayName ?? '—').split(' ').first,
                       style: GoogleFonts.inter(
                           color: isMe ? theme.primary : Colors.white,
                           fontSize: 10, fontWeight: FontWeight.w600),
                       textAlign: TextAlign.center),
+                  const SizedBox(height: 2),
+                  Builder(builder: (_) {
+                    final rank = getRank(entry.level ?? 0);
+                    return Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(rank.icon, color: rank.color, size: 9),
+                      const SizedBox(width: 2),
+                      Text('Lvl ${entry.level ?? 0}',
+                          style: GoogleFonts.inter(
+                              color: rank.color,
+                              fontSize: 8, fontWeight: FontWeight.w600)),
+                    ]);
+                  }),
                   const SizedBox(height: 6),
                   Container(
                     height: heights[pi],
@@ -298,14 +320,31 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: Text(
-                    isMe
-                        ? '${r.displayName ?? 'You'} (you)'
-                        : (r.displayName ?? '—'),
-                    style: GoogleFonts.inter(
-                        color: isMe ? theme.primary : Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600))),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                        isMe
+                            ? '${r.displayName ?? 'You'} (you)'
+                            : (r.displayName ?? '—'),
+                        style: GoogleFonts.inter(
+                            color: isMe ? theme.primary : Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                    Builder(builder: (_) {
+                      final rank = getRank(r.level ?? 0);
+                      return Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(rank.icon, color: rank.color, size: 10),
+                        const SizedBox(width: 3),
+                        Text('${rank.label} · Lvl ${r.level ?? 0}',
+                            style: GoogleFonts.inter(
+                                color: rank.color,
+                                fontSize: 9, fontWeight: FontWeight.w500)),
+                      ]);
+                    }),
+                  ],
+                )),
                 Text(_fmtXp(r.xp),
                     style: GoogleFonts.inter(
                         color: theme.primary,

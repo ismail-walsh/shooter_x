@@ -5,6 +5,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/nav/nav.dart';
 import '/components/sx_shared_widgets.dart';
 import '/services/database_service.dart';
+import '/utils/sx_discipline_theme.dart';
 
 class AllSessionsWidget extends StatefulWidget {
   const AllSessionsWidget({super.key});
@@ -54,11 +55,6 @@ class _AllSessionsWidgetState extends State<AllSessionsWidget> {
     const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return '${dt.day} ${m[dt.month - 1]} ${dt.year}';
   }
-
-  static const _tints = [
-    Color(0xFF1E2A1E), Color(0xFF1E201E), Color(0xFF1A2020),
-    Color(0xFF201E20), Color(0xFF1E2A1E), Color(0xFF201A1E),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -146,14 +142,25 @@ class _AllSessionsWidgetState extends State<AllSessionsWidget> {
           border: Border.all(color: theme.borderColor),
         ),
         child: Row(children: [
-          Container(
-            width: 46, height: 46,
-            decoration: BoxDecoration(
-              color: _tints[i % _tints.length],
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: CustomPaint(painter: _MiniTargetPainter()),
-          ),
+          Builder(builder: (_) {
+            final dt = getDisciplineTheme(s.discipline ?? '');
+            return Container(
+              width: 46, height: 46,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    dt.accent.withOpacity(0.25),
+                    dt.accent.withOpacity(0.08),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: dt.accent.withOpacity(0.2)),
+              ),
+              child: Icon(dt.icon, color: dt.accent, size: 20),
+            );
+          }),
           const SizedBox(width: 12),
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,20 +190,3 @@ class _AllSessionsWidgetState extends State<AllSessionsWidget> {
   }
 }
 
-class _MiniTargetPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    final c = Offset(size.width / 2, size.height / 2);
-    canvas.drawCircle(c, size.width * 0.42, paint);
-    canvas.drawCircle(c, size.width * 0.26, paint);
-    paint.style = PaintingStyle.fill;
-    canvas.drawCircle(c, size.width * 0.09, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
-}

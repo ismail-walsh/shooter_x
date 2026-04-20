@@ -2,6 +2,7 @@
 // Replaces lib/pages/onboarding/onboarding_widget.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/nav/nav.dart';
@@ -402,87 +403,18 @@ class _SocialButton extends StatelessWidget {
   }
 }
 
-// ─── LOGO SVG (Stag head) ─────────────────────────────────────────────────────
-// Uses a simplified vector approximation via CustomPaint.
-// Swap with your actual SVG asset via flutter_svg if preferred.
+// ─── LOGO SVG ─────────────────────────────────────────────────────────────────
 class _SXLogoSVG extends StatelessWidget {
   const _SXLogoSVG({required this.size});
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return SvgPicture.asset(
+      'assets/images/SXLogo.svg',
       width: size,
-      height: size * 1.15,
-      child: CustomPaint(painter: _LogoPainter()),
+      height: size,
+      fit: BoxFit.contain,
     );
   }
-}
-
-class _LogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final sw = size.width;
-    final sh = size.height;
-
-    // Head ellipse
-    canvas.drawOval(
-      Rect.fromCenter(
-          center: Offset(sw * 0.5, sh * 0.52),
-          width: sw * 0.42,
-          height: sh * 0.4),
-      paint,
-    );
-
-    // Antler lines (simplified strokes)
-    paint
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = sw * 0.028;
-
-    // Left antler
-    final lPath = Path()
-      ..moveTo(sw * 0.36, sh * 0.38)
-      ..cubicTo(sw * 0.35, sh * 0.31, sw * 0.30, sh * 0.26, sw * 0.28, sh * 0.19);
-    canvas.drawPath(lPath, paint);
-
-    // Right antler
-    final rPath = Path()
-      ..moveTo(sw * 0.64, sh * 0.38)
-      ..cubicTo(sw * 0.65, sh * 0.31, sw * 0.70, sh * 0.26, sw * 0.72, sh * 0.19);
-    canvas.drawPath(rPath, paint);
-
-    // Neck
-    paint.style = PaintingStyle.fill;
-    final neckPath = Path()
-      ..moveTo(sw * 0.40, sh * 0.71)
-      ..quadraticBezierTo(sw * 0.5, sh * 0.76, sw * 0.60, sh * 0.71)
-      ..lineTo(sw * 0.62, sh * 0.80)
-      ..quadraticBezierTo(sw * 0.5, sh * 0.85, sw * 0.38, sh * 0.80)
-      ..close();
-    canvas.drawPath(neckPath, paint);
-
-    // Eyes
-    paint.color = const Color(0xFF111111);
-    canvas.drawCircle(Offset(sw * 0.42, sh * 0.49), sw * 0.028, paint);
-    canvas.drawCircle(Offset(sw * 0.58, sh * 0.49), sw * 0.028, paint);
-
-    // Crossed rifles
-    paint
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = sw * 0.038;
-    canvas.drawLine(
-        Offset(sw * 0.08, sh * 0.96), Offset(sw * 0.72, sh * 0.80), paint);
-    canvas.drawLine(
-        Offset(sw * 0.92, sh * 0.96), Offset(sw * 0.28, sh * 0.80), paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
 }

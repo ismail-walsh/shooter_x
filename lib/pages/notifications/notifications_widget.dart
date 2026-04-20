@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/nav/nav.dart';
@@ -18,11 +20,19 @@ class NotificationsWidget extends StatefulWidget {
 class _NotificationsWidgetState extends State<NotificationsWidget> {
   bool _loading = true;
   List<NotificationsRow> _notifs = [];
+  RealtimeChannel? _channel;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _subscribeRealtime();
+  }
+
+  @override
+  void dispose() {
+    _channel?.unsubscribe();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -34,8 +44,30 @@ class _NotificationsWidgetState extends State<NotificationsWidget> {
     }
   }
 
+  void _subscribeRealtime() {
+    if (currentUserUid.isEmpty) return;
+    _channel = SupaFlow.client
+        .channel('notifications:${currentUserUid}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: currentUserUid,
+          ),
+          callback: (payload) {
+            if (!mounted) return;
+            final newRow = NotificationsRow(
+                Map<String, dynamic>.from(payload.newRecord));
+            setState(() => _notifs.insert(0, newRow));
+          },
+        )
+        .subscribe();
+  }
+
   Future<void> _onTap(BuildContext context, NotificationsRow n) async {
-    // Mark as read locally and in DB
     if (n.isRead != true) {
       setState(() {
         final idx = _notifs.indexWhere((x) => x.id == n.id);
@@ -44,7 +76,6 @@ class _NotificationsWidgetState extends State<NotificationsWidget> {
       databaseService.markNotificationRead(n.id);
     }
 
-    // Navigate based on target_type
     switch (n.targetType) {
       case 'Leaderboard':
         context.pushNamed('Leaderboard');
@@ -59,6 +90,23 @@ class _NotificationsWidgetState extends State<NotificationsWidget> {
         break;
       default:
         break;
+    }
+  }
+
+  static IconData _iconForType(String? type, String? iconField) {
+    switch (iconField) {
+      case '🏆': return Icons.emoji_events_rounded;
+      case '🎯': return Icons.my_location_rounded;
+      case '🔥': return Icons.local_fire_department_rounded;
+      case '👑': return Icons.military_tech_rounded;
+      case '⚡': return Icons.bolt_rounded;
+      case '💯': return Icons.star_rounded;
+    }
+    switch (type) {
+      case 'Leaderboard': return Icons.emoji_events_rounded;
+      case 'EventDetails': return Icons.event_rounded;
+      case 'UserProfile': return Icons.person_rounded;
+      default: return Icons.notifications_rounded;
     }
   }
 
@@ -104,7 +152,6 @@ class _NotificationsWidgetState extends State<NotificationsWidget> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Unread dot
                                   Padding(
                                     padding: const EdgeInsets.only(top: 6, right: 8),
                                     child: AnimatedContainer(
@@ -118,15 +165,22 @@ class _NotificationsWidgetState extends State<NotificationsWidget> {
                                       ),
                                     ),
                                   ),
-                                  // Icon
-                                  SizedBox(
-                                    width: 36,
-                                    child: Text(n.icon ?? '🔔',
-                                        style: const TextStyle(fontSize: 22),
-                                        textAlign: TextAlign.center),
+                                  Container(
+                                    width: 36, height: 36,
+                                    decoration: BoxDecoration(
+                                      color: theme.secondaryBackground,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: theme.borderColor),
+                                    ),
+                                    child: Icon(
+                                      _iconForType(n.targetType, n.icon),
+                                      color: read
+                                          ? Colors.white.withOpacity(0.4)
+                                          : theme.primary,
+                                      size: 18,
+                                    ),
                                   ),
                                   const SizedBox(width: 12),
-                                  // Content
                                   Expanded(child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [

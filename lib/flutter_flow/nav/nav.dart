@@ -253,7 +253,9 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
         FFRoute(
           name: LeaderboardWidget.routeName,
           path: LeaderboardWidget.routePath,
-          builder: (context, params) => const LeaderboardWidget(),
+          builder: (context, params) => LeaderboardWidget(
+                clubId: params.getParam<String>('clubId', ParamType.String),
+              ),
         ),
         FFRoute(
           name: NotificationsWidget.routeName,

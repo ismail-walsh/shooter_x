@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -142,83 +143,75 @@ class _NavBarPageState extends State<NavBarPage> {
     };
     final currentIndex = tabs.keys.toList().indexOf(_currentPageName);
 
+    final theme = FlutterFlowTheme.of(context);
     return Scaffold(
       resizeToAvoidBottomInset: !widget.disableResizeToAvoidBottomInset,
       body: _currentPage ?? tabs[_currentPageName],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: currentIndex,
-        onTap: (i) => safeSetState(() {
-          _currentPage = null;
-          _currentPageName = tabs.keys.toList()[i];
-        }),
-        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-        selectedItemColor: FlutterFlowTheme.of(context).primaryText,
-        unselectedItemColor: FlutterFlowTheme.of(context).secondaryText,
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
-        type: BottomNavigationBarType.fixed,
-        items: <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.home_outlined,
-              size: 24.0,
+      extendBody: true,
+      bottomNavigationBar: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.85),
+              border: Border(
+                top: BorderSide(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 0.5,
+                ),
+              ),
             ),
-            activeIcon: Icon(
-              Icons.home,
-              size: 24.0,
+            child: BottomNavigationBar(
+              currentIndex: currentIndex,
+              onTap: (i) => safeSetState(() {
+                _currentPage = null;
+                _currentPageName = tabs.keys.toList()[i];
+              }),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: theme.primary,
+              unselectedItemColor: Colors.white.withOpacity(0.4),
+              selectedLabelStyle: GoogleFonts.inter(
+                  fontSize: 10, fontWeight: FontWeight.w600),
+              unselectedLabelStyle: GoogleFonts.inter(fontSize: 10),
+              showSelectedLabels: true,
+              showUnselectedLabels: true,
+              type: BottomNavigationBarType.fixed,
+              items: const <BottomNavigationBarItem>[
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home_outlined, size: 24.0),
+                  activeIcon: Icon(Icons.home_rounded, size: 24.0),
+                  label: 'Home',
+                  tooltip: '',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.my_location_outlined, size: 24.0),
+                  activeIcon: Icon(Icons.my_location_rounded, size: 24.0),
+                  label: 'Activity',
+                  tooltip: '',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.group_work_outlined, size: 24.0),
+                  activeIcon: Icon(Icons.group_work_rounded, size: 24.0),
+                  label: 'Clubs',
+                  tooltip: '',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.groups_outlined, size: 24.0),
+                  activeIcon: Icon(Icons.groups_rounded, size: 24.0),
+                  label: 'Community',
+                  tooltip: '',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.menu_book_outlined, size: 24.0),
+                  activeIcon: Icon(Icons.menu_book_rounded, size: 24.0),
+                  label: 'Training',
+                  tooltip: '',
+                ),
+              ],
             ),
-            label: 'Home',
-            tooltip: '',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.note_alt_outlined,
-              size: 24.0,
-            ),
-            activeIcon: Icon(
-              Icons.note_alt_sharp,
-              size: 24.0,
-            ),
-            label: 'Activity',
-            tooltip: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.group_work_outlined,
-              size: 24.0,
-            ),
-            activeIcon: Icon(
-              Icons.group_work,
-              size: 24.0,
-            ),
-            label: 'Clubs',
-            tooltip: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.groups_outlined,
-              size: 24.0,
-            ),
-            activeIcon: Icon(
-              Icons.groups,
-              size: 24.0,
-            ),
-            label: 'Community',
-            tooltip: '',
-          ),
-          BottomNavigationBarItem(
-            icon: FaIcon(
-              FontAwesomeIcons.book,
-              size: 24.0,
-            ),
-            activeIcon: FaIcon(
-              FontAwesomeIcons.bookOpen,
-              size: 24.0,
-            ),
-            label: 'Training',
-            tooltip: '',
-          )
-        ],
+        ),
       ),
     );
   }

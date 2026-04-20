@@ -505,12 +505,15 @@ class DatabaseService {
   // ==================== LEADERBOARD (scoped) ====================
 
   /// Get leaderboard entries filtered by scope ('overall' | 'monthly' | 'club' | 'friends')
+  /// Optionally filter by clubId if provided (requires club_id column on leaderboard_entries).
   Future<List<LeaderboardEntriesRow>> getLeaderboardByScope(
-      String scope) async {
+      String scope, {String? clubId}) async {
     final result = await LeaderboardEntriesTable().queryRows(
-      queryFn: (q) => q
-          .eqOrNull('scope', scope)
-          .order('rank', ascending: true),
+      queryFn: (q) {
+        var query = q.eqOrNull('scope', scope);
+        if (clubId != null) query = query.eqOrNull('club_id', clubId);
+        return query.order('rank', ascending: true);
+      },
     );
     return result;
   }
@@ -548,6 +551,81 @@ class DatabaseService {
           .limit(limit),
     );
     return result;
+  }
+
+  // ==================== SESSIONS (this week) ====================
+
+  /// Returns sessions for the current user in the current calendar week
+  /// (Monday 00:00 UTC → now). Used to drive the streak day-dot row.
+  Future<List<SessionsRow>> getSessionsThisWeek() async {
+    if (currentUserUid.isEmpty) return [];
+    final now = DateTime.now().toUtc();
+    // Monday of the current week at midnight UTC
+    final weekStart = now
+        .subtract(Duration(days: now.weekday - 1))
+        .copyWith(hour: 0, minute: 0, second: 0, millisecond: 0);
+    final result = await SessionsTable().queryRows(
+      queryFn: (q) => q
+          .eqOrNull('user_id', currentUserUid)
+          .gte('created_at', weekStart.toIso8601String())
+          .order('created_at', ascending: true),
+    );
+    return result;
+  }
+
+  // ==================== WEEKLY CHALLENGES ====================
+
+  /// Returns the current user's active weekly challenges, joined with the
+  /// weekly_challenge definition so title and xp_reward are available.
+  /// Falls back to an empty list if either table doesn't exist yet.
+  Future<List<Map<String, dynamic>>> getUserWeeklyChallenges(
+      String userId) async {
+    if (userId.isEmpty) return [];
+    try {
+      // Fetch user_challenges for this user that are not completed
+      final userRows = await SupaFlow.client
+          .from('user_challenges')
+          .select('id, challenge_id, type, progress, target, completed')
+          .eq('user_id', userId)
+          .eq('completed', false)
+          .limit(5);
+
+      if (userRows is! List || userRows.isEmpty) return [];
+
+      // Collect challenge_ids to fetch definitions
+      final ids = userRows
+          .map((r) => r['challenge_id'])
+          .whereType<String>()
+          .toList();
+
+      Map<String, Map<String, dynamic>> defs = {};
+      if (ids.isNotEmpty) {
+        final defRows = await SupaFlow.client
+            .from('weekly_challenges')
+            .select('id, title, xp_reward')
+            .inFilter('id', ids);
+        if (defRows is List) {
+          for (final d in defRows) {
+            defs[d['id'] as String] = Map<String, dynamic>.from(d);
+          }
+        }
+      }
+
+      // Merge: user row + definition
+      return userRows.map((r) {
+        final def = defs[r['challenge_id'] as String?] ?? {};
+        return {
+          'title': def['title'] ?? r['type'] ?? 'Challenge',
+          'progress': r['progress'] ?? 0,
+          'target': r['target'] ?? 1,
+          'xp_reward': def['xp_reward'] ?? 100,
+          'type': r['type'] ?? '',
+          'completed': r['completed'] ?? false,
+        };
+      }).toList();
+    } catch (_) {
+      return [];
+    }
   }
 }
 

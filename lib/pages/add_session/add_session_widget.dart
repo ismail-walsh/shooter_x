@@ -7,6 +7,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
 import '/services/database_service.dart';
+import '/services/sx_gamification_service.dart';
 import 'dart:ui';
 import '/index.dart';
 import 'package:flutter/material.dart';
@@ -86,6 +87,9 @@ class _AddSessionWidgetState extends State<AddSessionWidget> {
       );
 
       if (session != null && mounted) {
+        // Award XP and update streak in the background
+        SXGamificationService.onSessionCompleted(currentUserUid);
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Session saved successfully!'),

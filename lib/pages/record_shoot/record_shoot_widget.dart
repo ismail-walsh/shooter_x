@@ -4,7 +4,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '/auth/supabase_auth/auth_util.dart';
+import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
+import '/services/sx_gamification_service.dart';
 import '/flutter_flow/nav/nav.dart';
 import '/components/sx_shared_widgets.dart';
 
@@ -47,9 +50,23 @@ class _RecordShootWidgetState extends State<RecordShootWidget> {
     setState(() => _shots = 0);
   }
 
-  void _save() {
-    // TODO: Write to Supabase sessions table
-    setState(() => _saved = true);
+  Future<void> _save() async {
+    final elapsed = _stopwatch.elapsed.inSeconds;
+    try {
+      await SessionsTable().insert({
+        'user_id': currentUserUid,
+        'total_shots': _shots,
+        'hits': _shots,
+        'accuracy': 0.0,
+        'created_at': DateTime.now().toIso8601String(),
+        'conditions': {'duration_seconds': elapsed},
+      });
+      // Award XP and update streak
+      await SXGamificationService.onSessionCompleted(currentUserUid);
+    } catch (_) {
+      // Non-blocking: session saves best-effort
+    }
+    if (mounted) setState(() => _saved = true);
   }
 
   @override
@@ -208,7 +225,7 @@ class _RecordShootWidgetState extends State<RecordShootWidget> {
       if (!_stopwatch.isRunning && _stopwatch.elapsed.inSeconds > 0) ...[
         const SizedBox(width: 12),
         Expanded(child: GestureDetector(
-          onTap: _save,
+          onTap: () => _save(),
           child: Container(
             height: 54,
             decoration: BoxDecoration(
