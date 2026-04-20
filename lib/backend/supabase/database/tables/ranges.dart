@@ -33,4 +33,25 @@ class RangesRow extends SupabaseDataRow {
 
   DateTime? get createdAt => getField<DateTime>('created_at');
   set createdAt(DateTime? value) => setField<DateTime>('created_at', value);
+
+  double? get latitude => getField<double>('latitude');
+  set latitude(double? value) => setField<double>('latitude', value);
+
+  double? get longitude => getField<double>('longitude');
+  set longitude(double? value) => setField<double>('longitude', value);
+
+  bool? get isOpen => getField<bool>('is_open');
+  set isOpen(bool? value) => setField<bool>('is_open', value);
+
+  String? get openingHours => getField<String>('opening_hours');
+  set openingHours(String? value) => setField<String>('opening_hours', value);
+
+  String? get websiteUrl => getField<String>('website_url');
+  set websiteUrl(String? value) => setField<String>('website_url', value);
+
+  String? get phone => getField<String>('phone');
+  set phone(String? value) => setField<String>('phone', value);
+
+  String? get description => getField<String>('description');
+  set description(String? value) => setField<String>('description', value);
 }

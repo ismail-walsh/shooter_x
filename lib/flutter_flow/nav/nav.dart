@@ -149,10 +149,8 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: UserProfileWidget.routeName,
           path: UserProfileWidget.routePath,
           builder: (context, params) => UserProfileWidget(
-            userId: params.getParam(
-              'userId',
-              ParamType.String,
-            ),
+            userId: params.getParam('userId', ParamType.String),
+            displayName: params.getParam('displayName', ParamType.String),
           ),
         ),
         FFRoute(
@@ -178,7 +176,9 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
         FFRoute(
           name: EventCardWidget.routeName,
           path: EventCardWidget.routePath,
-          builder: (context, params) => EventCardWidget(),
+          builder: (context, params) => EventCardWidget(
+            clubId: params.getParam('clubId', ParamType.String),
+          ),
         ),
         FFRoute(
           name: MembershipCardWidget.routeName,
@@ -264,6 +264,13 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: AllSessionsWidget.routeName,
           path: AllSessionsWidget.routePath,
           builder: (context, params) => const AllSessionsWidget(),
+        ),
+        FFRoute(
+          name: CourseDetailWidget.routeName,
+          path: CourseDetailWidget.routePath,
+          builder: (context, params) => CourseDetailWidget(
+            courseId: params.getParam('courseId', ParamType.String),
+          ),
         ),
       ].map((r) => r.toRoute(appStateNotifier)).toList(),
     );

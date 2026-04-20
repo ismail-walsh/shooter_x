@@ -1,11 +1,11 @@
-// activity_widget.dart
-// Replaces lib/pages/activity/activity_widget.dart
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '/auth/supabase_auth/auth_util.dart';
+import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/nav/nav.dart';
 import '/components/sx_shared_widgets.dart';
+import '/services/database_service.dart';
 
 class ActivityWidget extends StatefulWidget {
   const ActivityWidget({super.key});
@@ -23,16 +23,73 @@ class _ActivityWidgetState extends State<ActivityWidget> {
   static const _sports = [
     'Target Shooting', 'Deer Stalking', 'Clay Shooting', 'Game Shooting',
   ];
-  static const _sessions = [
-    {'date': '14 Apr', 'location': 'OD Range', 'score': '96%', 'badge': 'PB', 'tint': Color(0xFF1E2A1E)},
-    {'date': '31 Mar', 'location': 'SD Clay', 'score': '87%', 'badge': '12d', 'tint': Color(0xFF1E201E)},
-    {'date': '12 Mar', 'location': 'Luton Range', 'score': '91%', 'badge': '3w', 'tint': Color(0xFF1A2020)},
+
+  bool _loading = true;
+  List<SessionsRow> _sessions = [];
+  List<EventsRow> _events = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final results = await Future.wait([
+        databaseService.getRecentSessions(limit: 3),
+        databaseService.getAllEvents(),
+      ]);
+      if (mounted) {
+        final allEvents = results[1] as List<EventsRow>;
+        // Sort: live first, then upcoming by date
+        allEvents.sort((a, b) {
+          if (a.status == 'live' && b.status != 'live') return -1;
+          if (b.status == 'live' && a.status != 'live') return 1;
+          final ad = a.date ?? DateTime(2099);
+          final bd = b.date ?? DateTime(2099);
+          return ad.compareTo(bd);
+        });
+        setState(() {
+          _sessions = results[0] as List<SessionsRow>;
+          _events = allEvents.take(5).toList();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  static String _fmtDate(DateTime? dt) {
+    if (dt == null) return '';
+    const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${dt.day} ${m[dt.month - 1]}';
+  }
+
+  static String _badge(SessionsRow s) {
+    if (s.isPersonalBest == true) return 'PB';
+    final diff = DateTime.now().difference(s.createdAt ?? DateTime.now());
+    if (diff.inDays < 1) return 'Today';
+    if (diff.inDays < 7) return '${diff.inDays}d';
+    return '${(diff.inDays / 7).floor()}w';
+  }
+
+  static const _tints = [
+    Color(0xFF1E2A1E), Color(0xFF1E201E), Color(0xFF1A2020),
   ];
-  static const _comps = [
-    {'name': 'Schmeisser Steel Challenge', 'due': 'Live – 67% complete', 'live': true},
-    {'name': 'OD Tactical Shoot', 'due': 'Starts in 3 days', 'live': false},
-    {'name': 'Club Night Challenge', 'due': 'Due next week', 'live': false},
-  ];
+
+  String _eventDueLabel(EventsRow e) {
+    if (e.status == 'live') return 'Live now';
+    if (e.date == null) return 'Coming soon';
+    final diff = e.date!.difference(DateTime.now());
+    if (diff.inDays <= 0) return 'Today';
+    if (diff.inDays == 1) return 'Starts tomorrow';
+    if (diff.inDays <= 7) return 'Starts in ${diff.inDays} days';
+    return 'Due ${_fmtDate(e.date)}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +109,6 @@ class _ActivityWidgetState extends State<ActivityWidget> {
                 const SliverToBoxAdapter(child: SizedBox(height: 100)),
               ],
             ),
-            // Record Shoot FAB
             Positioned(
               bottom: 16,
               left: 0, right: 0,
@@ -72,7 +128,7 @@ class _ActivityWidgetState extends State<ActivityWidget> {
               letterSpacing: -0.5)),
       actions: [
         SXAvatarButton(onTap: () => context.pushNamed('UserProfile',
-            queryParameters: {'userId': 'me'})),
+            queryParameters: {'userId': currentUserUid})),
       ],
     );
   }
@@ -115,7 +171,9 @@ class _ActivityWidgetState extends State<ActivityWidget> {
               ),
               child: Column(
                 children: _sports.map((s) => GestureDetector(
-                  onTap: () => setState(() { _sport = s; _showPicker = false; }),
+                  onTap: () {
+                    setState(() { _sport = s; _showPicker = false; });
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
@@ -168,66 +226,90 @@ class _ActivityWidgetState extends State<ActivityWidget> {
     return Column(children: [
       SXSectionTitle(label: 'Recent', actionLabel: 'See All',
           onAction: () => context.pushNamed('AllSessions')),
-      SizedBox(
-        height: 170,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
+      if (_loading)
+        const SizedBox(height: 152,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+      else if (_sessions.isEmpty)
+        Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-          itemCount: _sessions.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
-          itemBuilder: (ctx, i) {
-            final s = _sessions[i];
-            return SXSessionCard(
-              date: s['date'] as String,
-              location: s['location'] as String,
-              score: s['score'] as String,
-              badge: s['badge'] as String,
-              tintColor: s['tint'] as Color,
-              onTap: () => context.pushNamed('SessionSummary',
-                  queryParameters: {'sessionId': 'session_$i'}),
-            );
-          },
+          child: Text('No sessions yet.',
+              style: GoogleFonts.inter(
+                  color: Colors.white.withOpacity(0.4), fontSize: 13)),
+        )
+      else
+        SizedBox(
+          height: 170,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+            itemCount: _sessions.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (ctx, i) {
+              final s = _sessions[i];
+              return SXSessionCard(
+                date: _fmtDate(s.createdAt),
+                location: s.location ?? s.discipline ?? '—',
+                score: '${(s.accuracy ?? 0).toStringAsFixed(0)}%',
+                badge: _badge(s),
+                tintColor: _tints[i % _tints.length],
+                onTap: () => context.pushNamed('SessionSummary',
+                    queryParameters: {'sessionId': s.id}),
+              );
+            },
+          ),
         ),
-      ),
     ]);
   }
 
   Widget _buildCompetitions(BuildContext context, FlutterFlowTheme theme) {
     return Column(children: [
       const SXSectionTitle(label: 'Competitions'),
-      ..._comps.map((c) => GestureDetector(
-        onTap: () => context.pushNamed('EventDetails',
-            queryParameters: {'eventId': 'comp_0'}),
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            color: theme.secondaryBackground,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: theme.borderColor),
-          ),
-          child: Row(children: [
-            Expanded(child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(c['name'] as String,
-                    style: GoogleFonts.inter(color: Colors.white,
-                        fontSize: 13, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 3),
-                Text(c['due'] as String,
-                    style: GoogleFonts.inter(
-                        color: Colors.white.withOpacity(0.5), fontSize: 11)),
+      if (_loading)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: CircularProgressIndicator(strokeWidth: 2),
+        )
+      else if (_events.isEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Text('No upcoming competitions.',
+              style: GoogleFonts.inter(
+                  color: Colors.white.withOpacity(0.4), fontSize: 13)),
+        )
+      else
+        ..._events.map((e) => GestureDetector(
+          onTap: () => context.pushNamed('EventDetails',
+              queryParameters: {'eventId': e.id}),
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: theme.secondaryBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.borderColor),
+            ),
+            child: Row(children: [
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(e.name,
+                      style: GoogleFonts.inter(color: Colors.white,
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 3),
+                  Text(_eventDueLabel(e),
+                      style: GoogleFonts.inter(
+                          color: Colors.white.withOpacity(0.5), fontSize: 11)),
+                ],
+              )),
+              if (e.status == 'live') ...[
+                const SXLiveBadge(),
+                const SizedBox(width: 8),
               ],
-            )),
-            if (c['live'] == true) ...[
-              const SXLiveBadge(),
-              const SizedBox(width: 8),
-            ],
-            Icon(Icons.chevron_right_rounded,
-                color: Colors.white.withOpacity(0.3), size: 18),
-          ]),
-        ),
-      )),
+              Icon(Icons.chevron_right_rounded,
+                  color: Colors.white.withOpacity(0.3), size: 18),
+            ]),
+          ),
+        )),
     ]);
   }
 

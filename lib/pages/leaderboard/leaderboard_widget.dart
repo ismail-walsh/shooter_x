@@ -1,11 +1,12 @@
-// leaderboard_widget.dart  — NEW SCREEN
-// Add to lib/pages/leaderboard/leaderboard_widget.dart
-
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '/auth/supabase_auth/auth_util.dart';
+import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/nav/nav.dart';
 import '/components/sx_shared_widgets.dart';
+import '/services/database_service.dart';
 
 class LeaderboardWidget extends StatefulWidget {
   const LeaderboardWidget({super.key});
@@ -19,19 +20,45 @@ class LeaderboardWidget extends StatefulWidget {
 class _LeaderboardWidgetState extends State<LeaderboardWidget> {
   String _filter = 'Overall';
   static const _filters = ['Overall', 'Monthly', 'Club', 'Friends'];
+  static const _scopeMap = {
+    'Overall': 'overall',
+    'Monthly': 'monthly',
+    'Club': 'club',
+    'Friends': 'friends',
+  };
 
-  static const _entries = [
-    {'rank': 1, 'name': 'Mike Thornton', 'score': '98%', 'xp': '24,500', 'badge': '🥇', 'isMe': false},
-    {'rank': 2, 'name': 'Sarah Daley', 'score': '97%', 'xp': '22,100', 'badge': '🥈', 'isMe': false},
-    {'rank': 3, 'name': 'Alex Reid', 'score': '95%', 'xp': '19,800', 'badge': '🥉', 'isMe': false},
-    {'rank': 4, 'name': 'Tom Walsh', 'score': '94%', 'xp': '17,200', 'badge': '', 'isMe': false},
-    {'rank': 5, 'name': 'Rachel Fox', 'score': '93%', 'xp': '15,600', 'badge': '', 'isMe': false},
-    {'rank': 6, 'name': 'Dan Hughes', 'score': '92%', 'xp': '14,400', 'badge': '', 'isMe': false},
-    {'rank': 7, 'name': 'Nina Patel', 'score': '91%', 'xp': '13,200', 'badge': '', 'isMe': false},
-    {'rank': 8, 'name': 'Chris Bell', 'score': '90%', 'xp': '12,800', 'badge': '', 'isMe': false},
-    {'rank': 9, 'name': 'You', 'score': '91%', 'xp': '12,400', 'badge': '', 'isMe': true},
-    {'rank': 10, 'name': 'Jo Marsh', 'score': '89%', 'xp': '11,900', 'badge': '', 'isMe': false},
-  ];
+  bool _loading = true;
+  List<LeaderboardEntriesRow> _entries = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLeaderboard();
+  }
+
+  Future<void> _loadLeaderboard() async {
+    setState(() => _loading = true);
+    try {
+      final scope = _scopeMap[_filter] ?? 'overall';
+      final entries = await databaseService.getLeaderboardByScope(scope);
+      if (mounted) setState(() { _entries = entries; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  static String _fmtXp(int? xp) {
+    if (xp == null) return '0 XP';
+    if (xp >= 1000) return '${(xp / 1000).toStringAsFixed(1)}k XP';
+    return '$xp XP';
+  }
+
+  static String _badge(int rank) {
+    if (rank == 1) return '🥇';
+    if (rank == 2) return '🥈';
+    if (rank == 3) return '🥉';
+    return '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,8 +70,26 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
           SXBackHeader(title: 'Leaderboard'),
           Expanded(child: CustomScrollView(slivers: [
             SliverToBoxAdapter(child: _buildFilters(context, theme)),
-            SliverToBoxAdapter(child: _buildPodium(context, theme)),
-            SliverToBoxAdapter(child: _buildList(context, theme)),
+            if (_loading)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 48),
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                ),
+              )
+            else if (_entries.length >= 3) ...[
+              SliverToBoxAdapter(child: _buildPodium(context, theme)),
+              SliverToBoxAdapter(child: _buildList(context, theme)),
+            ] else
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Text('No entries yet for this category.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                          color: Colors.white.withOpacity(0.4), fontSize: 14)),
+                ),
+              ),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ])),
         ]),
@@ -63,7 +108,12 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
         itemBuilder: (ctx, i) {
           final active = _filters[i] == _filter;
           return GestureDetector(
-            onTap: () => setState(() => _filter = _filters[i]),
+            onTap: () {
+              if (_filters[i] != _filter) {
+                setState(() => _filter = _filters[i]);
+                _loadLeaderboard();
+              }
+            },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -83,8 +133,8 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
   }
 
   Widget _buildPodium(BuildContext context, FlutterFlowTheme theme) {
-    // Display order: 2nd, 1st, 3rd
-    final podium = [_entries[1], _entries[0], _entries[2]];
+    // Display order: 2nd place (left), 1st place (centre), 3rd place (right)
+    final podiumOrder = [_entries[1], _entries[0], _entries[2]];
     final heights = [100.0, 130.0, 85.0];
     final labels = ['2nd', '1st', '3rd'];
 
@@ -93,15 +143,20 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(3, (pi) {
-          final entry = podium[pi];
+          final entry = podiumOrder[pi];
+          final isMe = entry.userId == currentUserUid;
           return Expanded(
             child: GestureDetector(
-              onTap: () => context.pushNamed('UserProfile',
-                  queryParameters: {'userId': 'user_${pi + 1}'}),
+              onTap: isMe
+                  ? null
+                  : () => context.pushNamed('UserProfile',
+                      queryParameters: {
+                        'userId': entry.userId ?? '',
+                        'displayName': entry.displayName ?? '',
+                      }),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Avatar
                   Container(
                     width: 44, height: 44,
                     decoration: BoxDecoration(
@@ -112,21 +167,37 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
                         width: 2,
                       ),
                     ),
-                    child: Icon(Icons.person_rounded,
-                        color: Colors.white.withOpacity(0.5), size: 22),
+                    child: ClipOval(
+                      child: entry.profileImg != null &&
+                              entry.profileImg!.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: entry.profileImg!,
+                              width: 44, height: 44,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, __, ___) => Icon(
+                                  Icons.person_rounded,
+                                  color: isMe
+                                      ? theme.primary
+                                      : Colors.white.withOpacity(0.5),
+                                  size: 22),
+                            )
+                          : Icon(Icons.person_rounded,
+                              color: isMe
+                                  ? theme.primary
+                                  : Colors.white.withOpacity(0.5),
+                              size: 22),
+                    ),
                   ),
                   const SizedBox(height: 6),
-                  // Badge
-                  if ((entry['badge'] as String).isNotEmpty)
-                    Text(entry['badge'] as String,
-                        style: const TextStyle(fontSize: 18)),
+                  Text(_badge(entry.rank ?? (pi + 1)),
+                      style: const TextStyle(fontSize: 18)),
                   const SizedBox(height: 4),
-                  Text((entry['name'] as String).split(' ')[0],
-                      style: GoogleFonts.inter(color: Colors.white,
+                  Text((entry.displayName ?? '—').split(' ').first,
+                      style: GoogleFonts.inter(
+                          color: isMe ? theme.primary : Colors.white,
                           fontSize: 10, fontWeight: FontWeight.w600),
                       textAlign: TextAlign.center),
                   const SizedBox(height: 6),
-                  // Podium bar
                   Container(
                     height: heights[pi],
                     decoration: BoxDecoration(
@@ -162,6 +233,7 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
 
   Widget _buildList(BuildContext context, FlutterFlowTheme theme) {
     final rest = _entries.skip(3).toList();
+    if (rest.isEmpty) return const SizedBox.shrink();
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
@@ -173,12 +245,15 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
         children: rest.asMap().entries.map((e) {
           final i = e.key;
           final r = e.value;
-          final isMe = r['isMe'] as bool;
+          final isMe = r.userId == currentUserUid;
           return GestureDetector(
             onTap: isMe
                 ? null
                 : () => context.pushNamed('UserProfile',
-                    queryParameters: {'userId': 'user_${r['rank']}'}),
+                    queryParameters: {
+                      'userId': r.userId ?? '',
+                      'displayName': r.displayName ?? '',
+                    }),
             child: Container(
               padding: const EdgeInsets.symmetric(
                   horizontal: 16, vertical: 12),
@@ -187,18 +262,16 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
                     ? theme.primary.withOpacity(0.05)
                     : Colors.transparent,
                 border: i < rest.length - 1
-                    ? Border(
-                        bottom: BorderSide(color: theme.borderColor))
+                    ? Border(bottom: BorderSide(color: theme.borderColor))
                     : null,
                 borderRadius: i == rest.length - 1
-                    ? const BorderRadius.vertical(
-                        bottom: Radius.circular(13))
+                    ? const BorderRadius.vertical(bottom: Radius.circular(13))
                     : null,
               ),
               child: Row(children: [
                 SizedBox(
                   width: 24,
-                  child: Text('${r['rank']}',
+                  child: Text('${r.rank ?? (i + 4)}',
                       style: GoogleFonts.inter(
                           color: Colors.white.withOpacity(0.5),
                           fontSize: 12),
@@ -209,22 +282,38 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
                   width: 28, height: 28,
                   decoration: BoxDecoration(
                       color: theme.alternate, shape: BoxShape.circle),
+                  child: ClipOval(
+                    child: r.profileImg != null && r.profileImg!.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: r.profileImg!,
+                            width: 28, height: 28,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => Icon(
+                                Icons.person_rounded,
+                                color: Colors.white.withOpacity(0.4),
+                                size: 14),
+                          )
+                        : Icon(Icons.person_rounded,
+                            color: Colors.white.withOpacity(0.4), size: 14),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(child: Text(
-                    isMe ? '${r['name']} (you)' : r['name'] as String,
+                    isMe
+                        ? '${r.displayName ?? 'You'} (you)'
+                        : (r.displayName ?? '—'),
                     style: GoogleFonts.inter(
                         color: isMe ? theme.primary : Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w600))),
-                Text('${r['xp']} XP',
+                Text(_fmtXp(r.xp),
                     style: GoogleFonts.inter(
                         color: theme.primary,
                         fontSize: 11, fontWeight: FontWeight.w600)),
                 const SizedBox(width: 10),
                 SizedBox(
                   width: 36,
-                  child: Text(r['score'] as String,
+                  child: Text('${(r.score ?? 0).toStringAsFixed(0)}%',
                       style: GoogleFonts.inter(
                           color: Colors.white.withOpacity(0.5),
                           fontSize: 11),

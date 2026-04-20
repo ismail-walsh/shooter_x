@@ -19,9 +19,12 @@ class UserProfileWidget extends StatefulWidget {
   const UserProfileWidget({
     super.key,
     required this.userId,
+    this.displayName,
   });
 
   final String? userId;
+  /// Fallback name shown when the user row can't be loaded (e.g. RLS blocked).
+  final String? displayName;
 
   static String routeName = 'UserProfile';
   static String routePath = '/userProfile';
@@ -85,6 +88,42 @@ class _UserProfileWidgetState extends State<UserProfileWidget> {
         });
       }
     }
+  }
+
+  Widget _buildNotFoundPlaceholder(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final name = widget.displayName?.isNotEmpty == true
+        ? widget.displayName!
+        : 'Unknown User';
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80, height: 80,
+              decoration: BoxDecoration(
+                color: theme.alternate,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.person_rounded,
+                  color: Colors.white.withOpacity(0.4), size: 40),
+            ),
+            const SizedBox(height: 16),
+            Text(name,
+                style: GoogleFonts.interTight(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text('Profile not available',
+                style: GoogleFonts.inter(
+                    color: Colors.white.withOpacity(0.4), fontSize: 14)),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _logout() async {
@@ -185,12 +224,8 @@ class _UserProfileWidgetState extends State<UserProfileWidget> {
                   ),
                 )
               : _user == null
-                  ? Center(
-                      child: Text(
-                        'User not found',
-                        style: FlutterFlowTheme.of(context).bodyLarge,
-                      ),
-                    )
+                  ? _buildNotFoundPlaceholder(context)
+
                   : RefreshIndicator(
                       onRefresh: _loadUserData,
                       child: SingleChildScrollView(

@@ -41,4 +41,13 @@ class UsersRow extends SupabaseDataRow {
 
   String? get coverImg => getField<String>('cover_img');
   set coverImg(String? value) => setField<String>('cover_img', value);
+
+  String? get fullName => getField<String>('full_name');
+  set fullName(String? value) => setField<String>('full_name', value);
+
+  int? get level => getField<int>('level');
+  set level(int? value) => setField<int>('level', value);
+
+  int? get totalXp => getField<int>('total_xp');
+  set totalXp(int? value) => setField<int>('total_xp', value);
 }

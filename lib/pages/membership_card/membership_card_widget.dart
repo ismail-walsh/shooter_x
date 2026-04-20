@@ -1,806 +1,399 @@
-import '/flutter_flow/flutter_flow_animations.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
-import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:math';
-import 'dart:ui';
-import 'package:auto_size_text/auto_size_text.dart';
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
-import 'membership_card_model.dart';
-export 'membership_card_model.dart';
+import '/auth/supabase_auth/auth_util.dart';
+import '/backend/supabase/supabase.dart';
+import '/flutter_flow/flutter_flow_theme.dart';
+import '/components/sx_shared_widgets.dart';
+import '/services/database_service.dart';
 
 class MembershipCardWidget extends StatefulWidget {
-  const MembershipCardWidget({
-    super.key,
-    required this.userId,
-  });
-
+  const MembershipCardWidget({super.key, this.userId});
   final String? userId;
 
-  static String routeName = 'MembershipCard';
-  static String routePath = '/membershipCard';
+  static const String routeName = 'MembershipCard';
+  static const String routePath = '/membershipCard';
 
   @override
   State<MembershipCardWidget> createState() => _MembershipCardWidgetState();
 }
 
-class _MembershipCardWidgetState extends State<MembershipCardWidget>
-    with TickerProviderStateMixin {
-  late MembershipCardModel _model;
-
-  final scaffoldKey = GlobalKey<ScaffoldState>();
-
-  final animationsMap = <String, AnimationInfo>{};
+class _MembershipCardWidgetState extends State<MembershipCardWidget> {
+  bool _loading = true;
+  UsersRow? _user;
+  ClubsRow? _club;
+  MembershipCardsRow? _card;
 
   @override
   void initState() {
     super.initState();
-    _model = createModel(context, () => MembershipCardModel());
-
-    animationsMap.addAll({
-      'containerOnPageLoadAnimation1': AnimationInfo(
-        trigger: AnimationTrigger.onPageLoad,
-        effectsBuilder: () => [
-          VisibilityEffect(duration: 1.ms),
-          FadeEffect(
-            curve: Curves.easeInOut,
-            delay: 0.0.ms,
-            duration: 600.0.ms,
-            begin: 0.0,
-            end: 1.0,
-          ),
-          MoveEffect(
-            curve: Curves.easeInOut,
-            delay: 0.0.ms,
-            duration: 600.0.ms,
-            begin: Offset(0.0, 50.0),
-            end: Offset(0.0, 0.0),
-          ),
-        ],
-      ),
-      'columnOnPageLoadAnimation1': AnimationInfo(
-        trigger: AnimationTrigger.onPageLoad,
-        effectsBuilder: () => [
-          VisibilityEffect(duration: 120.ms),
-          FadeEffect(
-            curve: Curves.easeInOut,
-            delay: 120.0.ms,
-            duration: 600.0.ms,
-            begin: 0.0,
-            end: 1.0,
-          ),
-          MoveEffect(
-            curve: Curves.easeInOut,
-            delay: 120.0.ms,
-            duration: 600.0.ms,
-            begin: Offset(0.0, 40.0),
-            end: Offset(0.0, 0.0),
-          ),
-        ],
-      ),
-      'columnOnPageLoadAnimation2': AnimationInfo(
-        trigger: AnimationTrigger.onPageLoad,
-        effectsBuilder: () => [
-          VisibilityEffect(duration: 240.ms),
-          FadeEffect(
-            curve: Curves.easeInOut,
-            delay: 240.0.ms,
-            duration: 600.0.ms,
-            begin: 0.0,
-            end: 1.0,
-          ),
-          MoveEffect(
-            curve: Curves.easeInOut,
-            delay: 240.0.ms,
-            duration: 600.0.ms,
-            begin: Offset(0.0, 70.0),
-            end: Offset(0.0, 0.0),
-          ),
-        ],
-      ),
-      'containerOnPageLoadAnimation2': AnimationInfo(
-        trigger: AnimationTrigger.onPageLoad,
-        effectsBuilder: () => [
-          VisibilityEffect(duration: 600.ms),
-          FadeEffect(
-            curve: Curves.bounceOut,
-            delay: 600.0.ms,
-            duration: 600.0.ms,
-            begin: 0.0,
-            end: 1.0,
-          ),
-          ScaleEffect(
-            curve: Curves.bounceOut,
-            delay: 600.0.ms,
-            duration: 600.0.ms,
-            begin: Offset(0.7, 0.7),
-            end: Offset(1.0, 1.0),
-          ),
-        ],
-      ),
-    });
-    setupAnimations(
-      animationsMap.values.where((anim) =>
-          anim.trigger == AnimationTrigger.onActionTrigger ||
-          !anim.applyInitialState),
-      this,
-    );
+    _load();
   }
 
   @override
   void dispose() {
-    _model.dispose();
-
     super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final uid = (widget.userId?.isNotEmpty == true)
+          ? widget.userId!
+          : currentUserUid ?? '';
+      if (uid.isEmpty) {
+        if (mounted) setState(() => _loading = false);
+        return;
+      }
+
+      final user = await databaseService.getUserById(uid);
+      final memberships = await databaseService.getUserClubMemberships();
+      final cards = await databaseService.getUserMembershipCards();
+
+      ClubsRow? club;
+      MembershipCardsRow? card;
+
+      if (memberships.isNotEmpty) {
+        final clubId = memberships.first.clubId ?? '';
+        club = await databaseService.getClubById(clubId);
+        card = cards.where((c) => c.clubId == clubId).firstOrNull;
+        card ??= cards.isNotEmpty ? cards.first : null;
+      }
+
+      if (mounted) {
+        setState(() {
+          _user = user;
+          _club = club;
+          _card = card;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String get _memberName {
+    if (_user == null) return 'Member';
+    final full = _user!.fullName;
+    if (full != null && full.isNotEmpty) return full;
+    return _user!.username;
+  }
+
+  String get _clubName => _club?.name ?? 'Shooting Club';
+  String get _clubAddress => _club?.location ?? '';
+  String get _cardNumber => _card?.cardNumber ?? 'PENDING';
+  String get _openingHours =>
+      _club?.openingHours ?? 'Contact club for range hours';
+  String get _expiryYear {
+    final dt = _card?.expiryDate;
+    if (dt == null) return '2027';
+    return dt.year.toString();
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-        appBar: AppBar(
-          backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
-          automaticallyImplyLeading: false,
-          leading: FlutterFlowIconButton(
-            borderColor: Colors.transparent,
-            borderRadius: 30.0,
-            borderWidth: 1.0,
-            buttonSize: 60.0,
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: FlutterFlowTheme.of(context).primaryText,
-              size: 30.0,
-            ),
-            onPressed: () async {
-              context.pop();
-            },
+    final theme = FlutterFlowTheme.of(context);
+    return Scaffold(
+      backgroundColor: theme.primaryBackground,
+      body: SafeArea(
+        child: Column(children: [
+          SXBackHeader(title: 'Membership Card'),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                    child: Column(children: [
+                      _buildCard(context, theme),
+                      const SizedBox(height: 24),
+                      _buildInfoSection(context, theme),
+                    ]),
+                  ),
           ),
-          actions: [],
-          centerTitle: false,
-          elevation: 0.0,
+        ]),
+      ),
+    );
+  }
+
+  // ── Membership Card ───────────────────────────────────────────────────────
+
+  Widget _buildCard(BuildContext context, FlutterFlowTheme theme) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1A2E1A), Color(0xFF0D1A0D)],
         ),
-        body: SafeArea(
-          top: true,
-          child: SingleChildScrollView(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.primary.withOpacity(0.3), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: theme.primary.withOpacity(0.12),
+            blurRadius: 24,
+            spreadRadius: 2,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(children: [
+        // ── Card header ──────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+          decoration: BoxDecoration(
+            color: theme.primary.withOpacity(0.15),
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(18)),
+          ),
+          child: Row(children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: theme.primary.withOpacity(0.25),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.gps_fixed_rounded,
+                  color: theme.primary, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _clubName,
+                    style: GoogleFonts.interTight(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3),
+                  ),
+                  Text('MEMBER CARD',
+                      style: GoogleFonts.inter(
+                          color: theme.primary,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.5)),
+                ],
+              ),
+            ),
+            Text('Valid\n$_expiryYear',
+                textAlign: TextAlign.right,
+                style: GoogleFonts.inter(
+                    color: Colors.white.withOpacity(0.5), fontSize: 10)),
+          ]),
+        ),
+
+        // ── Punched ticket divider ────────────────────────────
+        _TicketDivider(theme: theme),
+
+        // ── Member details ────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('MEMBER',
+                  style: GoogleFonts.inter(
+                      color: Colors.white.withOpacity(0.4),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.5)),
+              const SizedBox(height: 4),
+              Text(_memberName,
+                  style: GoogleFonts.interTight(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5)),
+              const SizedBox(height: 16),
+              Row(children: [
+                _CardStat(label: 'MEMBER NO.', value: _cardNumber, theme: theme),
+                const SizedBox(width: 24),
+                _CardStat(label: 'EXPIRES', value: _expiryYear, theme: theme),
+              ]),
+            ],
+          ),
+        ),
+
+        // ── Barcode ───────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+          child: Container(
+            height: 72,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: BarcodeWidget(
+              data: _cardNumber,
+              barcode: Barcode.code128(),
+              color: Colors.black,
+              backgroundColor: Colors.transparent,
+              drawText: true,
+              style: const TextStyle(
+                  fontSize: 8, color: Colors.black54),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  // ── Info section below card ───────────────────────────────────────────────
+
+  Widget _buildInfoSection(BuildContext context, FlutterFlowTheme theme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.secondaryBackground,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.borderColor),
+      ),
+      child: Column(children: [
+        _InfoRow(
+          icon: Icons.location_on_rounded,
+          label: 'Address',
+          value: _clubAddress.isNotEmpty ? _clubAddress : 'See club website',
+          theme: theme,
+          showDivider: true,
+        ),
+        _InfoRow(
+          icon: Icons.access_time_rounded,
+          label: 'Range Hours',
+          value: _openingHours,
+          theme: theme,
+          showDivider: _club?.phone != null,
+        ),
+        if (_club?.phone != null && _club!.phone!.isNotEmpty)
+          _InfoRow(
+            icon: Icons.phone_outlined,
+            label: 'Phone',
+            value: _club!.phone!,
+            theme: theme,
+            showDivider: false,
+          ),
+      ]),
+    );
+  }
+}
+
+// ── Supporting widgets ────────────────────────────────────────────────────────
+
+class _TicketDivider extends StatelessWidget {
+  const _TicketDivider({required this.theme});
+  final FlutterFlowTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: FlutterFlowTheme.of(context).primaryBackground,
+            shape: BoxShape.circle,
+          )),
+      Expanded(
+        child: LayoutBuilder(builder: (context, constraints) {
+          final dashCount = (constraints.maxWidth / 10).floor();
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(dashCount, (_) => Container(
+              width: 4, height: 1,
+              color: Colors.white.withOpacity(0.15),
+            )),
+          );
+        }),
+      ),
+      Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: FlutterFlowTheme.of(context).primaryBackground,
+            shape: BoxShape.circle,
+          )),
+    ]);
+  }
+}
+
+class _CardStat extends StatelessWidget {
+  const _CardStat(
+      {required this.label, required this.value, required this.theme});
+  final String label;
+  final String value;
+  final FlutterFlowTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label,
+          style: GoogleFonts.inter(
+              color: Colors.white.withOpacity(0.4),
+              fontSize: 8,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.2)),
+      const SizedBox(height: 2),
+      Text(value,
+          style: GoogleFonts.inter(
+              color: theme.primary,
+              fontSize: 13,
+              fontWeight: FontWeight.w700)),
+    ]);
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.theme,
+    required this.showDivider,
+  });
+  final IconData icon;
+  final String label;
+  final String value;
+  final FlutterFlowTheme theme;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(
+              color: theme.alternate,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: theme.primary, size: 16),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
             child: Column(
-              mainAxisSize: MainAxisSize.max,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Stack(
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      height: 400.0,
-                      decoration: BoxDecoration(
-                        color: FlutterFlowTheme.of(context).secondaryBackground,
-                        boxShadow: [
-                          BoxShadow(
-                            blurRadius: 3.0,
-                            color: Color(0x33000000),
-                            offset: Offset(
-                              0.0,
-                              1.0,
-                            ),
-                          )
-                        ],
-                      ),
-                      child: Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
-                            16.0, 0.0, 16.0, 0.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.max,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Double Deuce Firing Range',
-                              style: FlutterFlowTheme.of(context)
-                                  .headlineLarge
-                                  .override(
-                                    font: GoogleFonts.interTight(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .headlineLarge
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .headlineLarge
-                                          .fontStyle,
-                                    ),
-                                    fontSize: 28.0,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .headlineLarge
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .headlineLarge
-                                        .fontStyle,
-                                  ),
-                            ),
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 12.0, 0.0, 0.0),
-                              child: Text(
-                                'Address',
-                                style: FlutterFlowTheme.of(context)
-                                    .labelMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontStyle,
-                                      ),
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .fontStyle,
-                                    ),
-                              ),
-                            ),
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 4.0, 0.0, 0.0),
-                              child: Text(
-                                'Unit 3, Fryers Road, Walsall,\nWest Midlands WS2 7LZ UK',
-                                style: FlutterFlowTheme.of(context)
-                                    .titleLarge
-                                    .override(
-                                      font: GoogleFonts.interTight(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .titleLarge
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .titleLarge
-                                            .fontStyle,
-                                      ),
-                                      fontSize: 15.0,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .titleLarge
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .titleLarge
-                                          .fontStyle,
-                                    ),
-                              ),
-                            ),
-                            Divider(
-                              height: 36.0,
-                              thickness: 1.0,
-                              color: FlutterFlowTheme.of(context).alternate,
-                            ),
-                            Text(
-                              'Range Hours',
-                              style: FlutterFlowTheme.of(context)
-                                  .labelMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .fontStyle,
-                                    ),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 8.0, 0.0, 0.0),
-                              child: Text(
-                                'Monday – Friday: 5pm to 9pm\nSaturday: 10am to 8pm\nSunday: 10am to 4pm',
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 260.0, 0.0, 0.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.max,
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Align(
-                            alignment: AlignmentDirectional(0.0, 0.0),
-                            child: Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  16.0, 16.0, 16.0, 44.0),
-                              child: Material(
-                                color: Colors.transparent,
-                                elevation: 0.0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(15.0),
-                                ),
-                                child: Container(
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        blurRadius: 12.0,
-                                        color: Color(0x33000000),
-                                        offset: Offset(
-                                          0.0,
-                                          5.0,
-                                        ),
-                                      )
-                                    ],
-                                    borderRadius: BorderRadius.circular(15.0),
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.max,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
-                                            0.0, 0.0, 0.0, 16.0),
-                                        child: Container(
-                                          width: 100.0,
-                                          decoration: BoxDecoration(
-                                            color: FlutterFlowTheme.of(context)
-                                                .primary,
-                                            borderRadius: BorderRadius.only(
-                                              bottomLeft: Radius.circular(0.0),
-                                              bottomRight: Radius.circular(0.0),
-                                              topLeft: Radius.circular(16.0),
-                                              topRight: Radius.circular(16.0),
-                                            ),
-                                          ),
-                                          child: Padding(
-                                            padding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                    0.0, 20.0, 0.0, 16.0),
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.start,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Padding(
-                                                  padding: EdgeInsetsDirectional
-                                                      .fromSTEB(
-                                                          20.0, 0.0, 16.0, 4.0),
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.max,
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .center,
-                                                    children: [
-                                                      Expanded(
-                                                        child: Padding(
-                                                          padding:
-                                                              EdgeInsetsDirectional
-                                                                  .fromSTEB(
-                                                                      4.0,
-                                                                      0.0,
-                                                                      0.0,
-                                                                      0.0),
-                                                          child: AutoSizeText(
-                                                            'Double Deuce Firing Range',
-                                                            textAlign:
-                                                                TextAlign.start,
-                                                            style: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .bodyMedium
-                                                                .override(
-                                                                  font:
-                                                                      GoogleFonts
-                                                                          .inter(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w800,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .info,
-                                                                  fontSize:
-                                                                      25.0,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w800,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      ClipRRect(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(50.0),
-                                                        child: Image.asset(
-                                                          'assets/images/Screenshot_2025-09-11_at_17.54.56.png',
-                                                          width: 40.0,
-                                                          height: 40.0,
-                                                          fit: BoxFit.cover,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                Padding(
-                                                  padding: EdgeInsetsDirectional
-                                                      .fromSTEB(
-                                                          20.0, 0.0, 20.0, 0.0),
-                                                  child: AutoSizeText(
-                                                    'Membership No: DD152',
-                                                    textAlign: TextAlign.start,
-                                                    style: FlutterFlowTheme.of(
-                                                            context)
-                                                        .titleSmall
-                                                        .override(
-                                                          font: GoogleFonts
-                                                              .interTight(
-                                                            fontWeight:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .titleSmall
-                                                                    .fontWeight,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .titleSmall
-                                                                    .fontStyle,
-                                                          ),
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .accent4,
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .titleSmall
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .titleSmall
-                                                                  .fontStyle,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ).animateOnPageLoad(animationsMap[
-                                                'columnOnPageLoadAnimation1']!),
-                                          ),
-                                        ),
-                                      ),
-                                      Column(
-                                        mainAxisSize: MainAxisSize.max,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisSize: MainAxisSize.max,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Align(
-                                                alignment: AlignmentDirectional(
-                                                    -0.85, -0.15),
-                                                child: Material(
-                                                  color: Colors.transparent,
-                                                  elevation: 0.0,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.only(
-                                                      bottomLeft:
-                                                          Radius.circular(0.0),
-                                                      bottomRight:
-                                                          Radius.circular(50.0),
-                                                      topLeft:
-                                                          Radius.circular(0.0),
-                                                      topRight:
-                                                          Radius.circular(50.0),
-                                                    ),
-                                                  ),
-                                                  child: Container(
-                                                    width: 50.0,
-                                                    height: 70.0,
-                                                    decoration: BoxDecoration(
-                                                      color: FlutterFlowTheme
-                                                              .of(context)
-                                                          .primaryBackground,
-                                                      borderRadius:
-                                                          BorderRadius.only(
-                                                        bottomLeft:
-                                                            Radius.circular(
-                                                                0.0),
-                                                        bottomRight:
-                                                            Radius.circular(
-                                                                50.0),
-                                                        topLeft:
-                                                            Radius.circular(
-                                                                0.0),
-                                                        topRight:
-                                                            Radius.circular(
-                                                                50.0),
-                                                      ),
-                                                      shape: BoxShape.rectangle,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Material(
-                                                color: Colors.transparent,
-                                                elevation: 0.0,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          4.0),
-                                                ),
-                                                child: Container(
-                                                  width: 40.0,
-                                                  height: 8.0,
-                                                  decoration: BoxDecoration(
-                                                    color: FlutterFlowTheme.of(
-                                                            context)
-                                                        .alternate,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            4.0),
-                                                    shape: BoxShape.rectangle,
-                                                  ),
-                                                ),
-                                              ),
-                                              Material(
-                                                color: Colors.transparent,
-                                                elevation: 0.0,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          4.0),
-                                                ),
-                                                child: Container(
-                                                  width: 40.0,
-                                                  height: 8.0,
-                                                  decoration: BoxDecoration(
-                                                    color: FlutterFlowTheme.of(
-                                                            context)
-                                                        .alternate,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            4.0),
-                                                    shape: BoxShape.rectangle,
-                                                  ),
-                                                ),
-                                              ),
-                                              Material(
-                                                color: Colors.transparent,
-                                                elevation: 0.0,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          4.0),
-                                                ),
-                                                child: Container(
-                                                  width: 40.0,
-                                                  height: 8.0,
-                                                  decoration: BoxDecoration(
-                                                    color: FlutterFlowTheme.of(
-                                                            context)
-                                                        .alternate,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            4.0),
-                                                    shape: BoxShape.rectangle,
-                                                  ),
-                                                ),
-                                              ),
-                                              Align(
-                                                alignment: AlignmentDirectional(
-                                                    0.85, -0.15),
-                                                child: Material(
-                                                  color: Colors.transparent,
-                                                  elevation: 0.0,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.only(
-                                                      bottomLeft:
-                                                          Radius.circular(50.0),
-                                                      bottomRight:
-                                                          Radius.circular(0.0),
-                                                      topLeft:
-                                                          Radius.circular(50.0),
-                                                      topRight:
-                                                          Radius.circular(0.0),
-                                                    ),
-                                                  ),
-                                                  child: Container(
-                                                    width: 50.0,
-                                                    height: 70.0,
-                                                    decoration: BoxDecoration(
-                                                      color: FlutterFlowTheme
-                                                              .of(context)
-                                                          .primaryBackground,
-                                                      borderRadius:
-                                                          BorderRadius.only(
-                                                        bottomLeft:
-                                                            Radius.circular(
-                                                                50.0),
-                                                        bottomRight:
-                                                            Radius.circular(
-                                                                0.0),
-                                                        topLeft:
-                                                            Radius.circular(
-                                                                50.0),
-                                                        topRight:
-                                                            Radius.circular(
-                                                                0.0),
-                                                      ),
-                                                      shape: BoxShape.rectangle,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          Padding(
-                                            padding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                    20.0, 12.0, 20.0, 0.0),
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.max,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.start,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  'Augustine Walsh',
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .headlineMedium
-                                                      .override(
-                                                        font: GoogleFonts
-                                                            .interTight(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .headlineMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .headlineMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .headlineMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .headlineMedium
-                                                                .fontStyle,
-                                                      ),
-                                                ),
-                                              ],
-                                            ).animateOnPageLoad(animationsMap[
-                                                'columnOnPageLoadAnimation2']!),
-                                          ),
-                                          Padding(
-                                            padding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                    0.0, 24.0, 0.0, 12.0),
-                                            child: Container(
-                                              width: MediaQuery.sizeOf(context)
-                                                      .width *
-                                                  1.0,
-                                              height: 90.0,
-                                              decoration: BoxDecoration(
-                                                color: Color(0x00FFFFFF),
-                                              ),
-                                              child: Padding(
-                                                padding: EdgeInsetsDirectional
-                                                    .fromSTEB(
-                                                        16.0, 0.0, 16.0, 0.0),
-                                                child: BarcodeWidget(
-                                                  data: 'Ticket #24222212',
-                                                  barcode: Barcode.code128(),
-                                                  width: 100.0,
-                                                  height: 50.0,
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .primaryText,
-                                                  backgroundColor:
-                                                      Colors.transparent,
-                                                  errorBuilder:
-                                                      (_context, _error) =>
-                                                          SizedBox(
-                                                    width: 100.0,
-                                                    height: 50.0,
-                                                  ),
-                                                  drawText: true,
-                                                ),
-                                              ),
-                                            ).animateOnPageLoad(animationsMap[
-                                                'containerOnPageLoadAnimation2']!),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ).animateOnPageLoad(animationsMap[
-                                  'containerOnPageLoadAnimation1']!),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.max,
-                  children: [],
-                ),
+                Text(label,
+                    style: GoogleFonts.inter(
+                        color: Colors.white.withOpacity(0.4),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 3),
+                Text(value,
+                    style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 13,
+                        height: 1.5)),
               ],
             ),
           ),
-        ),
+        ]),
       ),
-    );
+      if (showDivider) Divider(color: theme.borderColor, height: 1),
+    ]);
   }
 }

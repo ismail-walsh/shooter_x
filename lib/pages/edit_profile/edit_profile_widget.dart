@@ -7,6 +7,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
 import '/services/database_service.dart';
+import '/services/photo_upload_service.dart';
 import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +31,7 @@ class _EditProfileWidgetState extends State<EditProfileWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
   UsersRow? _currentUser;
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
@@ -75,6 +77,34 @@ class _EditProfileWidgetState extends State<EditProfileWidget> {
           _model.isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _pickAndUploadPhoto() async {
+    setState(() => _uploadingPhoto = true);
+    try {
+      final url = await photoUploadService.pickAndUpload(
+        bucket: 'avatars',
+        folder: 'profiles',
+      );
+      if (url != null && mounted) {
+        await databaseService.updateUserProfile(
+          userId: currentUserUid!,
+          profileImg: url,
+        );
+        setState(() {
+          if (_currentUser != null) _currentUser!.profileImg = url;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Upload failed: ${e.toString()}'),
+          backgroundColor: FlutterFlowTheme.of(context).error,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
     }
   }
 
@@ -191,51 +221,75 @@ class _EditProfileWidgetState extends State<EditProfileWidget> {
                           padding: EdgeInsetsDirectional.fromSTEB(0.0, 24.0, 0.0, 24.0),
                           child: Column(
                             children: [
-                              Container(
-                                width: 100.0,
-                                height: 100.0,
-                                decoration: BoxDecoration(
-                                  color: FlutterFlowTheme.of(context).secondaryBackground,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: FlutterFlowTheme.of(context).primary,
-                                    width: 2.0,
-                                  ),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(50.0),
-                                  child: _currentUser?.profileImg != null &&
-                                          _currentUser!.profileImg!.isNotEmpty
-                                      ? CachedNetworkImage(
-                                          fadeInDuration: Duration(milliseconds: 500),
-                                          fadeOutDuration: Duration(milliseconds: 500),
-                                          imageUrl: _currentUser!.profileImg!,
-                                          width: 100.0,
-                                          height: 100.0,
-                                          fit: BoxFit.cover,
-                                          placeholder: (context, url) => Center(
-                                            child: CircularProgressIndicator(
-                                              valueColor: AlwaysStoppedAnimation<Color>(
-                                                FlutterFlowTheme.of(context).primary,
-                                              ),
-                                            ),
-                                          ),
-                                          errorWidget: (context, url, error) => Icon(
-                                            Icons.person,
-                                            color: FlutterFlowTheme.of(context).secondaryText,
-                                            size: 50.0,
-                                          ),
-                                        )
-                                      : Icon(
-                                          Icons.person,
-                                          color: FlutterFlowTheme.of(context).secondaryText,
-                                          size: 50.0,
+                              GestureDetector(
+                                onTap: _uploadingPhoto ? null : _pickAndUploadPhoto,
+                                child: Stack(
+                                  children: [
+                                    Container(
+                                      width: 100.0,
+                                      height: 100.0,
+                                      decoration: BoxDecoration(
+                                        color: FlutterFlowTheme.of(context).secondaryBackground,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: FlutterFlowTheme.of(context).primary,
+                                          width: 2.0,
                                         ),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(50.0),
+                                        child: _uploadingPhoto
+                                            ? Center(
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                                      FlutterFlowTheme.of(context).primary),
+                                                ))
+                                            : _currentUser?.profileImg != null &&
+                                                    _currentUser!.profileImg!.isNotEmpty
+                                                ? CachedNetworkImage(
+                                                    fadeInDuration: const Duration(milliseconds: 500),
+                                                    fadeOutDuration: const Duration(milliseconds: 500),
+                                                    imageUrl: _currentUser!.profileImg!,
+                                                    width: 100.0,
+                                                    height: 100.0,
+                                                    fit: BoxFit.cover,
+                                                    errorWidget: (context, url, error) => Icon(
+                                                      Icons.person,
+                                                      color: FlutterFlowTheme.of(context).secondaryText,
+                                                      size: 50.0,
+                                                    ),
+                                                  )
+                                                : Icon(
+                                                    Icons.person,
+                                                    color: FlutterFlowTheme.of(context).secondaryText,
+                                                    size: 50.0,
+                                                  ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      bottom: 0,
+                                      right: 0,
+                                      child: Container(
+                                        width: 28,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          color: FlutterFlowTheme.of(context).primary,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                              color: FlutterFlowTheme.of(context).primaryBackground,
+                                              width: 2),
+                                        ),
+                                        child: const Icon(Icons.camera_alt_rounded,
+                                            color: Colors.white, size: 14),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              SizedBox(height: 12.0),
+                              const SizedBox(height: 8.0),
                               Text(
-                                'Profile photo can be changed via your account settings',
+                                'Tap to change photo',
                                 style: FlutterFlowTheme.of(context).labelSmall.override(
                                       font: GoogleFonts.inter(),
                                       letterSpacing: 0.0,

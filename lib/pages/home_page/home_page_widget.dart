@@ -1,11 +1,11 @@
-// home_page_widget.dart
-// Replaces lib/pages/home_page/home_page_widget.dart
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '/auth/supabase_auth/auth_util.dart';
+import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/nav/nav.dart';
 import '/components/sx_shared_widgets.dart';
+import '/services/database_service.dart';
 
 class HomePageWidget extends StatefulWidget {
   const HomePageWidget({super.key});
@@ -17,23 +17,68 @@ class HomePageWidget extends StatefulWidget {
 }
 
 class _HomePageWidgetState extends State<HomePageWidget> {
-  // TODO: Replace with real Supabase queries
-  final _sessions = const [
-    {'date': '14 Apr', 'location': 'OD Range – Marin', 'score': '96%', 'badge': 'PB', 'tint': Color(0xFF1E2A1E)},
-    {'date': '31 Mar', 'location': 'SD Clay – Breather', 'score': '87%', 'badge': '12d ago', 'tint': Color(0xFF1E201E)},
-    {'date': '12 Mar', 'location': 'Luton Range', 'score': '91%', 'badge': '3w ago', 'tint': Color(0xFF1A2020)},
+  bool _loading = true;
+  List<SessionsRow> _sessions = [];
+  List<LeaderboardEntriesRow> _board = [];
+  List<EventsRow> _events = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    // Load each source independently — a failure in one won't blank the others.
+    final results = await Future.wait([
+      databaseService.getRecentSessions(limit: 3).catchError((_) => <SessionsRow>[]),
+      databaseService.getLeaderboardByScope('overall').catchError((_) => <LeaderboardEntriesRow>[]),
+      databaseService.getUpcomingEvents().catchError((_) => <EventsRow>[]),
+    ]);
+    if (mounted) {
+      setState(() {
+        _sessions = results[0] as List<SessionsRow>;
+        _board = (results[1] as List<LeaderboardEntriesRow>).take(3).toList();
+        _events = (results[2] as List<EventsRow>).take(3).toList();
+        _loading = false;
+      });
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  static String _fmtDate(DateTime? dt) {
+    if (dt == null) return '';
+    const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${dt.day} ${m[dt.month - 1]}';
+  }
+
+  static String _badge(SessionsRow s) {
+    if (s.isPersonalBest == true) return 'PB';
+    final diff = DateTime.now().difference(s.createdAt ?? DateTime.now());
+    if (diff.inDays < 1) return 'Today';
+    if (diff.inDays < 7) return '${diff.inDays}d';
+    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w';
+    return '${(diff.inDays / 30).floor()}mo';
+  }
+
+  static String _score(SessionsRow s) =>
+      '${(s.accuracy ?? 0).toStringAsFixed(0)}%';
+
+  static const _tints = [
+    Color(0xFF1E2A1E), Color(0xFF1E201E), Color(0xFF1A2020),
   ];
 
-  final _board = const [
-    {'rank': 11, 'name': 'Edgar Muldane', 'level': 256, 'xp': '10,000 XP', 'time': '1:02'},
-    {'rank': 12, 'name': 'Augustina V.', 'level': 7, 'xp': '500 XP', 'time': '2:21'},
-    {'rank': 13, 'name': 'Jason Marsh', 'level': 183, 'xp': '10,000 XP', 'time': '2:22'},
-  ];
+  static String _fmtXp(int? xp) {
+    if (xp == null) return '0 XP';
+    if (xp >= 1000) return '${(xp / 1000).toStringAsFixed(1)}k XP';
+    return '$xp XP';
+  }
 
-  final _events = const [
-    {'name': 'Schmeisser Steel Challenge', 'club': 'Double Deuce', 'date': 'June 2nd · Shooting Centre'},
-    {'name': 'Tactical Shoot Night', 'club': 'Double Deuce', 'date': 'Thursday, 7th September'},
-  ];
+  static String _eventDate(EventsRow e) {
+    if (e.date == null) return e.location ?? '';
+    const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${e.date!.day} ${m[e.date!.month - 1]} · ${e.location ?? ''}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +100,6 @@ class _HomePageWidgetState extends State<HomePageWidget> {
     );
   }
 
-  // ── Header ────────────────────────────────────────────────────────────────
   Widget _buildHeader(BuildContext context, FlutterFlowTheme theme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -69,13 +113,12 @@ class _HomePageWidgetState extends State<HomePageWidget> {
           ),
           const SizedBox(width: 8),
           SXAvatarButton(onTap: () => context.pushNamed('UserProfile',
-              queryParameters: {'userId': 'me'})),
+              queryParameters: {'userId': currentUserUid})),
         ],
       ),
     );
   }
 
-  // ── Recent Sessions ───────────────────────────────────────────────────────
   Widget _buildRecentSessions(BuildContext context, FlutterFlowTheme theme) {
     return Column(
       children: [
@@ -84,66 +127,62 @@ class _HomePageWidgetState extends State<HomePageWidget> {
           actionLabel: 'See All',
           onAction: () => context.pushNamed('AllSessions'),
         ),
-        SizedBox(
-          height: 170,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
+        if (_loading)
+          const SizedBox(height: 152, child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+        else if (_sessions.isEmpty)
+          Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-            itemCount: _sessions.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (context, i) {
-              final s = _sessions[i];
-              return SXSessionCard(
-                date: s['date'] as String,
-                location: s['location'] as String,
-                score: s['score'] as String,
-                badge: s['badge'] as String,
-                tintColor: s['tint'] as Color,
-                onTap: () => context.pushNamed('SessionSummary',
-                    queryParameters: {'sessionId': 'session_$i'}),
-              );
-            },
+            child: Text('No sessions yet — log your first shot!',
+                style: GoogleFonts.inter(
+                    color: Colors.white.withOpacity(0.4), fontSize: 13)),
+          )
+        else
+          SizedBox(
+            height: 170,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+              itemCount: _sessions.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, i) {
+                final s = _sessions[i];
+                return SXSessionCard(
+                  date: _fmtDate(s.createdAt),
+                  location: s.location ?? s.discipline ?? '—',
+                  score: _score(s),
+                  badge: _badge(s),
+                  tintColor: _tints[i % _tints.length],
+                  onTap: () => context.pushNamed('SessionSummary',
+                      queryParameters: {'sessionId': s.id}),
+                );
+              },
+            ),
           ),
-        ),
       ],
     );
   }
 
-  // ── Action Grid ───────────────────────────────────────────────────────────
   Widget _buildActionGrid(BuildContext context, FlutterFlowTheme theme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
       child: Row(
         children: [
-          SXActionButton(
-            label: 'Log Shot',
-            icon: Icons.adjust_rounded,
-            onTap: () => context.pushNamed('AddSession'),
-          ),
+          SXActionButton(label: 'Log Shot', icon: Icons.adjust_rounded,
+              onTap: () => context.pushNamed('AddSession')),
           const SizedBox(width: 8),
-          SXActionButton(
-            label: 'Scan Target',
-            icon: Icons.qr_code_scanner_rounded,
-            onTap: () => context.pushNamed('ScanTarget'),
-          ),
+          SXActionButton(label: 'Scan Target', icon: Icons.qr_code_scanner_rounded,
+              onTap: () => context.pushNamed('ScanTarget')),
           const SizedBox(width: 8),
-          SXActionButton(
-            label: 'Find Range',
-            icon: Icons.location_on_rounded,
-            onTap: () => context.pushNamed('FindRange'),
-          ),
+          SXActionButton(label: 'Find Range', icon: Icons.location_on_rounded,
+              onTap: () => context.pushNamed('FindRange')),
           const SizedBox(width: 8),
-          SXActionButton(
-            label: 'Compete',
-            icon: Icons.emoji_events_rounded,
-            onTap: () => context.pushNamed('EventCard'),
-          ),
+          SXActionButton(label: 'Compete', icon: Icons.emoji_events_rounded,
+              onTap: () => context.pushNamed('EventCard')),
         ],
       ),
     );
   }
 
-  // ── Leaderboard ───────────────────────────────────────────────────────────
   Widget _buildLeaderboard(BuildContext context, FlutterFlowTheme theme) {
     return SXCard(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
@@ -166,41 +205,68 @@ class _HomePageWidgetState extends State<HomePageWidget> {
             ],
           ),
           const SizedBox(height: 14),
-          ...List.generate(_board.length, (i) {
-            final r = _board[i];
-            return Column(
-              children: [
-                SXLeaderboardRow(
-                  rank: r['rank'] as int,
-                  name: r['name'] as String,
-                  level: r['level'] as int,
-                  xp: r['xp'] as String,
-                  time: r['time'] as String,
-                  onTap: () => context.pushNamed('UserProfile',
-                      queryParameters: {'userId': 'user_$i'}),
-                ),
-                if (i < _board.length - 1)
-                  Divider(color: theme.borderColor, height: 1),
-              ],
-            );
-          }),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else if (_board.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text('No leaderboard data yet.',
+                  style: GoogleFonts.inter(
+                      color: Colors.white.withOpacity(0.4), fontSize: 12)),
+            )
+          else
+            ...List.generate(_board.length, (i) {
+              final r = _board[i];
+              final isMe = r.userId == currentUserUid;
+              return Column(
+                children: [
+                  SXLeaderboardRow(
+                    rank: r.rank ?? (i + 1),
+                    name: r.displayName ?? 'Unknown',
+                    level: (r.xp ?? 0) ~/ 1600,
+                    xp: _fmtXp(r.xp),
+                    time: '${(r.score ?? 0).toStringAsFixed(0)}%',
+                    profileImg: r.profileImg,
+                    isMe: isMe,
+                    onTap: isMe
+                        ? null
+                        : () => context.pushNamed('UserProfile',
+                            queryParameters: {
+                              'userId': r.userId ?? '',
+                              'displayName': r.displayName ?? '',
+                            }),
+                  ),
+                  if (i < _board.length - 1)
+                    Divider(color: theme.borderColor, height: 1),
+                ],
+              );
+            }),
         ],
       ),
     );
   }
 
-  // ── Upcoming Events ───────────────────────────────────────────────────────
   Widget _buildEvents(BuildContext context, FlutterFlowTheme theme) {
+    if (_events.isEmpty && !_loading) return const SizedBox.shrink();
     return Column(
       children: [
         const SXSectionTitle(label: 'Upcoming Events'),
-        ..._events.map((ev) => SXEventTile(
-              name: ev['name']!,
-              subtitle: ev['club']!,
-              detail: ev['date']!,
-              onTap: () => context.pushNamed('EventDetails',
-                  queryParameters: {'eventId': 'event_0'}),
-            )),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        else
+          ..._events.map((ev) => SXEventTile(
+                name: ev.name,
+                subtitle: ev.discipline ?? ev.status ?? 'Event',
+                detail: _eventDate(ev),
+                onTap: () => context.pushNamed('EventDetails',
+                    queryParameters: {'eventId': ev.id}),
+              )),
       ],
     );
   }

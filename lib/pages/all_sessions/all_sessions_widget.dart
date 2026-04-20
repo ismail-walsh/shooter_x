@@ -1,24 +1,63 @@
-// all_sessions_widget.dart  — NEW SCREEN
-// Add to lib/pages/all_sessions/all_sessions_widget.dart
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/nav/nav.dart';
 import '/components/sx_shared_widgets.dart';
+import '/services/database_service.dart';
 
-class AllSessionsWidget extends StatelessWidget {
+class AllSessionsWidget extends StatefulWidget {
   const AllSessionsWidget({super.key});
   static const String routeName = 'AllSessions';
   static const String routePath = '/allSessions';
 
-  static const _sessions = [
-    {'date': '14 Apr 2025', 'location': 'OD Range – Marin', 'score': '96%', 'shots': 10, 'badge': 'PB', 'tint': Color(0xFF1E2A1E)},
-    {'date': '31 Mar 2025', 'location': 'SD Clay – Breather', 'score': '87%', 'shots': 8, 'badge': '', 'tint': Color(0xFF1E201E)},
-    {'date': '12 Mar 2025', 'location': 'Luton Range', 'score': '91%', 'shots': 12, 'badge': '', 'tint': Color(0xFF1A2020)},
-    {'date': '24 Feb 2025', 'location': 'Double Deuce Club', 'score': '89%', 'shots': 10, 'badge': '', 'tint': Color(0xFF201E20)},
-    {'date': '10 Feb 2025', 'location': 'Marin Long Range', 'score': '93%', 'shots': 5, 'badge': '', 'tint': Color(0xFF1E2A1E)},
-    {'date': '28 Jan 2025', 'location': 'OD Range', 'score': '88%', 'shots': 10, 'badge': '', 'tint': Color(0xFF201A1E)},
+  @override
+  State<AllSessionsWidget> createState() => _AllSessionsWidgetState();
+}
+
+class _AllSessionsWidgetState extends State<AllSessionsWidget> {
+  bool _loading = true;
+  List<SessionsRow> _sessions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final sessions = await databaseService.getUserSessions();
+      if (mounted) setState(() { _sessions = sessions; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // ── Stats derived from loaded sessions ────────────────────────────────────
+  int get _count => _sessions.length;
+  String get _avgAccuracy {
+    if (_sessions.isEmpty) return '—';
+    final avg = _sessions.map((s) => s.accuracy ?? 0).reduce((a, b) => a + b)
+        / _sessions.length;
+    return '${avg.toStringAsFixed(0)}%';
+  }
+  String get _bestAccuracy {
+    if (_sessions.isEmpty) return '—';
+    final best = _sessions.map((s) => s.accuracy ?? 0).reduce((a, b) => a > b ? a : b);
+    return '${best.toStringAsFixed(0)}%';
+  }
+
+  // ── Formatters ────────────────────────────────────────────────────────────
+  static String _fmtDate(DateTime? dt) {
+    if (dt == null) return '';
+    const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${dt.day} ${m[dt.month - 1]} ${dt.year}';
+  }
+
+  static const _tints = [
+    Color(0xFF1E2A1E), Color(0xFF1E201E), Color(0xFF1A2020),
+    Color(0xFF201E20), Color(0xFF1E2A1E), Color(0xFF201A1E),
   ];
 
   @override
@@ -29,14 +68,28 @@ class AllSessionsWidget extends StatelessWidget {
       body: SafeArea(
         child: Column(children: [
           SXBackHeader(title: 'All Sessions'),
-          Expanded(child: CustomScrollView(slivers: [
-            SliverToBoxAdapter(child: _buildStats(context, theme)),
-            SliverList(delegate: SliverChildBuilderDelegate(
-              (ctx, i) => _buildSessionRow(ctx, theme, _sessions[i], i),
-              childCount: _sessions.length,
-            )),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          ])),
+          Expanded(child: _loading
+              ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+              : CustomScrollView(slivers: [
+                  SliverToBoxAdapter(child: _buildStats(context, theme)),
+                  if (_sessions.isEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Text('No sessions yet — log your first shot!',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
+                                color: Colors.white.withOpacity(0.4),
+                                fontSize: 14)),
+                      ),
+                    )
+                  else
+                    SliverList(delegate: SliverChildBuilderDelegate(
+                      (ctx, i) => _buildSessionRow(ctx, theme, _sessions[i], i),
+                      childCount: _sessions.length,
+                    )),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                ])),
         ]),
       ),
     );
@@ -46,11 +99,11 @@ class AllSessionsWidget extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
       child: Row(children: [
-        _statTile(theme, '47', 'Sessions'),
+        _statTile(theme, '$_count', 'Sessions'),
         const SizedBox(width: 8),
-        _statTile(theme, '91%', 'Average'),
+        _statTile(theme, _avgAccuracy, 'Average'),
         const SizedBox(width: 8),
-        _statTile(theme, '98%', 'Personal Best'),
+        _statTile(theme, _bestAccuracy, 'Personal Best'),
       ]),
     );
   }
@@ -79,10 +132,11 @@ class AllSessionsWidget extends StatelessWidget {
   }
 
   Widget _buildSessionRow(BuildContext context, FlutterFlowTheme theme,
-      Map s, int i) {
+      SessionsRow s, int i) {
+    final isPb = s.isPersonalBest == true;
     return GestureDetector(
       onTap: () => context.pushNamed('SessionSummary',
-          queryParameters: {'sessionId': 'session_$i'}),
+          queryParameters: {'sessionId': s.id}),
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
         padding: const EdgeInsets.all(13),
@@ -95,7 +149,7 @@ class AllSessionsWidget extends StatelessWidget {
           Container(
             width: 46, height: 46,
             decoration: BoxDecoration(
-              color: s['tint'] as Color,
+              color: _tints[i % _tints.length],
               borderRadius: BorderRadius.circular(11),
             ),
             child: CustomPaint(painter: _MiniTargetPainter()),
@@ -104,22 +158,22 @@ class AllSessionsWidget extends StatelessWidget {
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(s['location'] as String,
+              Text(s.location ?? s.discipline ?? '—',
                   style: GoogleFonts.inter(color: Colors.white,
                       fontSize: 13, fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
-              Text('${s['date']}  ·  ${s['shots']} shots',
+              Text('${_fmtDate(s.createdAt)}  ·  ${s.totalShots ?? 0} shots',
                   style: GoogleFonts.inter(
                       color: Colors.white.withOpacity(0.5), fontSize: 11)),
             ],
           )),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(s['score'] as String,
+            Text('${(s.accuracy ?? 0).toStringAsFixed(0)}%',
                 style: GoogleFonts.interTight(color: Colors.white,
                     fontSize: 20, fontWeight: FontWeight.w800,
                     letterSpacing: -1)),
-            if ((s['badge'] as String).isNotEmpty)
-              Text(s['badge'] as String,
+            if (isPb)
+              Text('PB',
                   style: GoogleFonts.inter(color: theme.primary,
                       fontSize: 9, fontWeight: FontWeight.w700)),
           ]),

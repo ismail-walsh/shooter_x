@@ -49,4 +49,10 @@ class ClubsRow extends SupabaseDataRow {
 
   String? get description => getField<String>('description');
   set description(String? value) => setField<String>('description', value);
+
+  String? get openingHours => getField<String>('opening_hours');
+  set openingHours(String? value) => setField<String>('opening_hours', value);
+
+  String? get phone => getField<String>('phone');
+  set phone(String? value) => setField<String>('phone', value);
 }

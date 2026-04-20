@@ -259,9 +259,12 @@ class DatabaseService {
 
   /// Get upcoming events
   Future<List<EventsRow>> getUpcomingEvents() async {
+    // Use date-only string (YYYY-MM-DD) so the filter works for both
+    // DATE and TIMESTAMPTZ column types in PostgreSQL.
+    final today = DateTime.now().toUtc().toIso8601String().substring(0, 10);
     final result = await EventsTable().queryRows(
       queryFn: (q) => q
-          .gte('date', DateTime.now().toIso8601String())
+          .gte('date', today)
           .order('date', ascending: true),
     );
     return result;
@@ -495,6 +498,54 @@ class DatabaseService {
         }
         return query.order('name');
       },
+    );
+    return result;
+  }
+
+  // ==================== LEADERBOARD (scoped) ====================
+
+  /// Get leaderboard entries filtered by scope ('overall' | 'monthly' | 'club' | 'friends')
+  Future<List<LeaderboardEntriesRow>> getLeaderboardByScope(
+      String scope) async {
+    final result = await LeaderboardEntriesTable().queryRows(
+      queryFn: (q) => q
+          .eqOrNull('scope', scope)
+          .order('rank', ascending: true),
+    );
+    return result;
+  }
+
+  // ==================== NOTIFICATIONS ====================
+
+  /// Get all notifications for the current user, newest first
+  Future<List<NotificationsRow>> getUserNotifications() async {
+    if (currentUserUid.isEmpty) return [];
+    final result = await NotificationsTable().queryRows(
+      queryFn: (q) => q
+          .eqOrNull('user_id', currentUserUid)
+          .order('created_at', ascending: false),
+    );
+    return result;
+  }
+
+  /// Mark a single notification as read
+  Future<void> markNotificationRead(String notificationId) async {
+    await NotificationsTable().update(
+      data: {'is_read': true},
+      matchingRows: (q) => q.eqOrNull('id', notificationId),
+    );
+  }
+
+  // ==================== SESSIONS (recent) ====================
+
+  /// Get the most recent N sessions for the current user
+  Future<List<SessionsRow>> getRecentSessions({int limit = 3}) async {
+    if (currentUserUid.isEmpty) return [];
+    final result = await SessionsTable().queryRows(
+      queryFn: (q) => q
+          .eqOrNull('user_id', currentUserUid)
+          .order('created_at', ascending: false)
+          .limit(limit),
     );
     return result;
   }

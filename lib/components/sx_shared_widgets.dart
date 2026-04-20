@@ -2,6 +2,7 @@
 // Drop into lib/components/sx_shared_widgets.dart
 // Reusable components used across all ShooterX screens.
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -531,6 +532,7 @@ class SXLeaderboardRow extends StatelessWidget {
     required this.level,
     required this.xp,
     required this.time,
+    this.profileImg,
     this.isMe = false,
     this.onTap,
   });
@@ -539,6 +541,7 @@ class SXLeaderboardRow extends StatelessWidget {
   final int level;
   final String xp;
   final String time;
+  final String? profileImg;
   final bool isMe;
   final VoidCallback? onTap;
 
@@ -566,8 +569,18 @@ class SXLeaderboardRow extends StatelessWidget {
               width: 28, height: 28,
               decoration: BoxDecoration(
                   color: theme.alternate, shape: BoxShape.circle),
-              child: Icon(Icons.person_rounded,
-                  color: Colors.white.withOpacity(0.4), size: 14),
+              child: ClipOval(
+                child: profileImg != null && profileImg!.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: profileImg!,
+                        width: 28, height: 28,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => Icon(Icons.person_rounded,
+                            color: Colors.white.withOpacity(0.4), size: 14),
+                      )
+                    : Icon(Icons.person_rounded,
+                        color: Colors.white.withOpacity(0.4), size: 14),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(

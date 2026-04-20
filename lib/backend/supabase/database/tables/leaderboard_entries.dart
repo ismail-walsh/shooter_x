@@ -42,4 +42,13 @@ class LeaderboardEntriesRow extends SupabaseDataRow {
 
   DateTime? get createdAt => getField<DateTime>('created_at');
   set createdAt(DateTime? value) => setField<DateTime>('created_at', value);
+
+  String? get displayName => getField<String>('display_name');
+  set displayName(String? value) => setField<String>('display_name', value);
+
+  String? get scope => getField<String>('scope');
+  set scope(String? value) => setField<String>('scope', value);
+
+  String? get profileImg => getField<String>('profile_img');
+  set profileImg(String? value) => setField<String>('profile_img', value);
 }

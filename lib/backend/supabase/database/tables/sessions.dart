@@ -53,4 +53,26 @@ class SessionsRow extends SupabaseDataRow {
 
   String? get competitionId => getField<String>('competition_id');
   set competitionId(String? value) => setField<String>('competition_id', value);
+
+  String? get location => getField<String>('location');
+  set location(String? value) => setField<String>('location', value);
+
+  bool? get isPersonalBest => getField<bool>('is_personal_best');
+  set isPersonalBest(bool? value) => setField<bool>('is_personal_best', value);
+
+  double? get groupSizeMm => getField<double>('group_size_mm');
+  set groupSizeMm(double? value) => setField<double>('group_size_mm', value);
+
+  String? get bestRing => getField<String>('best_ring');
+  set bestRing(String? value) => setField<String>('best_ring', value);
+
+  double? get spreadMm => getField<double>('spread_mm');
+  set spreadMm(double? value) => setField<double>('spread_mm', value);
+
+  String? get weatherConditions => getField<String>('weather_conditions');
+  set weatherConditions(String? value) =>
+      setField<String>('weather_conditions', value);
+
+  String? get notes => getField<String>('notes');
+  set notes(String? value) => setField<String>('notes', value);
 }

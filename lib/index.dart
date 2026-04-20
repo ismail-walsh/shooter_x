@@ -29,3 +29,4 @@ export '/pages/find_range/find_range_widget.dart' show FindRangeWidget;
 export '/pages/leaderboard/leaderboard_widget.dart' show LeaderboardWidget;
 export '/pages/notifications/notifications_widget.dart' show NotificationsWidget;
 export '/pages/all_sessions/all_sessions_widget.dart' show AllSessionsWidget;
+export '/pages/course_detail/course_detail_widget.dart' show CourseDetailWidget;

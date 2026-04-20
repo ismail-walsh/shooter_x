@@ -40,4 +40,7 @@ class EventsRow extends SupabaseDataRow {
 
   String? get discipline => getField<String>('discipline');
   set discipline(String? value) => setField<String>('discipline', value);
+
+  String? get status => getField<String>('status');
+  set status(String? value) => setField<String>('status', value);
 }
