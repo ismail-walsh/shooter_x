@@ -1,5 +1,4 @@
 import '/backend/supabase/supabase.dart';
-import '/auth/supabase_auth/auth_util.dart';
 
 /// Centralized service for all Supabase database operations
 class DatabaseService {
@@ -7,13 +6,19 @@ class DatabaseService {
   factory DatabaseService() => _instance;
   DatabaseService._internal();
 
+  /// Returns the authenticated user's UUID from the Supabase client's own
+  /// session — more reliable than the FlutterFlow `currentUser` global which
+  /// can lag behind on first load.
+  String get _uid => SupaFlow.client.auth.currentUser?.id ?? '';
+
   // ==================== USERS ====================
 
   /// Get current user's profile
   Future<UsersRow?> getCurrentUserProfile() async {
-    if (currentUserUid == null || currentUserUid!.isEmpty) return null;
+    final uid = _uid;
+    if (uid.isEmpty) return null;
     final result = await UsersTable().querySingleRow(
-      queryFn: (q) => q.eqOrNull('id', currentUserUid),
+      queryFn: (q) => q.eq('id', uid),
     );
     return result.isNotEmpty ? result.first : null;
   }
@@ -70,10 +75,10 @@ class DatabaseService {
 
   /// Get all sessions for current user
   Future<List<SessionsRow>> getUserSessions({String? discipline}) async {
-    if (currentUserUid == null) return [];
+    if (_uid.isEmpty) return [];
     final result = await SessionsTable().queryRows(
       queryFn: (q) {
-        var query = q.eqOrNull('user_id', currentUserUid);
+        var query = q.eqOrNull('user_id', _uid);
         if (discipline != null && discipline.isNotEmpty) {
           query = query.eqOrNull('discipline', discipline);
         }
@@ -103,12 +108,12 @@ class DatabaseService {
     String? competitionId,
     Map<String, dynamic>? conditions,
   }) async {
-    if (currentUserUid == null) return null;
+    if (_uid.isEmpty) return null;
 
     final accuracy = totalShots > 0 ? (hits / totalShots) * 100 : 0.0;
 
     final result = await SessionsTable().insert({
-      'user_id': currentUserUid,
+      'user_id': _uid,
       'discipline': discipline,
       'firearm': firearm,
       'ammo_type': ammoType,
@@ -125,7 +130,7 @@ class DatabaseService {
 
   /// Get user's session statistics
   Future<Map<String, dynamic>> getUserSessionStats() async {
-    if (currentUserUid == null) return {};
+    if (_uid.isEmpty) return {};
 
     final sessions = await getUserSessions();
     if (sessions.isEmpty) return {};
@@ -179,9 +184,9 @@ class DatabaseService {
 
   /// Get user's club memberships
   Future<List<ClubMembershipsRow>> getUserClubMemberships() async {
-    if (currentUserUid == null) return [];
+    if (_uid.isEmpty) return [];
     final result = await ClubMembershipsTable().queryRows(
-      queryFn: (q) => q.eqOrNull('user_id', currentUserUid),
+      queryFn: (q) => q.eqOrNull('user_id', _uid),
     );
     return result;
   }
@@ -202,18 +207,18 @@ class DatabaseService {
 
   /// Join a club
   Future<ClubMembershipsRow?> joinClub(String clubId) async {
-    if (currentUserUid == null) return null;
+    if (_uid.isEmpty) return null;
 
     // Check if already a member
     final existing = await ClubMembershipsTable().querySingleRow(
       queryFn: (q) => q
-          .eqOrNull('user_id', currentUserUid)
+          .eqOrNull('user_id', _uid)
           .eqOrNull('club_id', clubId),
     );
     if (existing.isNotEmpty) return existing.first;
 
     final result = await ClubMembershipsTable().insert({
-      'user_id': currentUserUid,
+      'user_id': _uid,
       'club_id': clubId,
       'role': 'member',
     });
@@ -222,20 +227,20 @@ class DatabaseService {
 
   /// Leave a club
   Future<void> leaveClub(String clubId) async {
-    if (currentUserUid == null) return;
+    if (_uid.isEmpty) return;
     await ClubMembershipsTable().delete(
       matchingRows: (q) => q
-          .eqOrNull('user_id', currentUserUid)
+          .eqOrNull('user_id', _uid)
           .eqOrNull('club_id', clubId),
     );
   }
 
   /// Check if user is member of a club
   Future<bool> isClubMember(String clubId) async {
-    if (currentUserUid == null) return false;
+    if (_uid.isEmpty) return false;
     final result = await ClubMembershipsTable().querySingleRow(
       queryFn: (q) => q
-          .eqOrNull('user_id', currentUserUid)
+          .eqOrNull('user_id', _uid)
           .eqOrNull('club_id', clubId),
     );
     return result.isNotEmpty;
@@ -280,18 +285,18 @@ class DatabaseService {
 
   /// Register for an event
   Future<EventRegistrationsRow?> registerForEvent(String eventId) async {
-    if (currentUserUid == null) return null;
+    if (_uid.isEmpty) return null;
 
     // Check if already registered
     final existing = await EventRegistrationsTable().querySingleRow(
       queryFn: (q) => q
-          .eqOrNull('user_id', currentUserUid)
+          .eqOrNull('user_id', _uid)
           .eqOrNull('event_id', eventId),
     );
     if (existing.isNotEmpty) return existing.first;
 
     final result = await EventRegistrationsTable().insert({
-      'user_id': currentUserUid,
+      'user_id': _uid,
       'event_id': eventId,
       'status': 'registered',
     });
@@ -300,20 +305,20 @@ class DatabaseService {
 
   /// Unregister from an event
   Future<void> unregisterFromEvent(String eventId) async {
-    if (currentUserUid == null) return;
+    if (_uid.isEmpty) return;
     await EventRegistrationsTable().delete(
       matchingRows: (q) => q
-          .eqOrNull('user_id', currentUserUid)
+          .eqOrNull('user_id', _uid)
           .eqOrNull('event_id', eventId),
     );
   }
 
   /// Check if user is registered for an event
   Future<bool> isRegisteredForEvent(String eventId) async {
-    if (currentUserUid == null) return false;
+    if (_uid.isEmpty) return false;
     final result = await EventRegistrationsTable().querySingleRow(
       queryFn: (q) => q
-          .eqOrNull('user_id', currentUserUid)
+          .eqOrNull('user_id', _uid)
           .eqOrNull('event_id', eventId),
     );
     return result.isNotEmpty;
@@ -321,9 +326,9 @@ class DatabaseService {
 
   /// Get user's event registrations
   Future<List<EventRegistrationsRow>> getUserEventRegistrations() async {
-    if (currentUserUid == null) return [];
+    if (_uid.isEmpty) return [];
     final result = await EventRegistrationsTable().queryRows(
-      queryFn: (q) => q.eqOrNull('user_id', currentUserUid),
+      queryFn: (q) => q.eqOrNull('user_id', _uid),
     );
     return result;
   }
@@ -355,10 +360,10 @@ class DatabaseService {
     String? sessionId,
     String? clubId,
   }) async {
-    if (currentUserUid == null) return null;
+    if (_uid.isEmpty) return null;
 
     final result = await PostsTable().insert({
-      'user_id': currentUserUid,
+      'user_id': _uid,
       'content': content,
       'media_url': mediaUrl,
       'session_id': sessionId,
@@ -397,9 +402,9 @@ class DatabaseService {
 
   /// Get user's training progress
   Future<List<TrainingProgressRow>> getUserTrainingProgress() async {
-    if (currentUserUid == null) return [];
+    if (_uid.isEmpty) return [];
     final result = await TrainingProgressTable().queryRows(
-      queryFn: (q) => q.eqOrNull('user_id', currentUserUid),
+      queryFn: (q) => q.eqOrNull('user_id', _uid),
     );
     return result;
   }
@@ -410,12 +415,12 @@ class DatabaseService {
     required String module,
     required double progress,
   }) async {
-    if (currentUserUid == null) return null;
+    if (_uid.isEmpty) return null;
 
     // Check if exists
     final existing = await TrainingProgressTable().querySingleRow(
       queryFn: (q) => q
-          .eqOrNull('user_id', currentUserUid)
+          .eqOrNull('user_id', _uid)
           .eqOrNull('training_type', trainingType)
           .eqOrNull('module', module),
     );
@@ -428,7 +433,7 @@ class DatabaseService {
       return result.isNotEmpty ? result.first : null;
     } else {
       final result = await TrainingProgressTable().insert({
-        'user_id': currentUserUid,
+        'user_id': _uid,
         'training_type': trainingType,
         'module': module,
         'progress': progress,
@@ -460,9 +465,9 @@ class DatabaseService {
 
   /// Get user's membership cards
   Future<List<MembershipCardsRow>> getUserMembershipCards() async {
-    if (currentUserUid == null) return [];
+    if (_uid.isEmpty) return [];
     final result = await MembershipCardsTable().queryRows(
-      queryFn: (q) => q.eqOrNull('user_id', currentUserUid),
+      queryFn: (q) => q.eqOrNull('user_id', _uid),
     );
     return result;
   }
@@ -479,9 +484,9 @@ class DatabaseService {
 
   /// Get user's achievements
   Future<List<UserAchievementsRow>> getUserAchievements() async {
-    if (currentUserUid == null) return [];
+    if (_uid.isEmpty) return [];
     final result = await UserAchievementsTable().queryRows(
-      queryFn: (q) => q.eqOrNull('user_id', currentUserUid),
+      queryFn: (q) => q.eqOrNull('user_id', _uid),
     );
     return result;
   }
@@ -522,10 +527,10 @@ class DatabaseService {
 
   /// Get all notifications for the current user, newest first
   Future<List<NotificationsRow>> getUserNotifications() async {
-    if (currentUserUid.isEmpty) return [];
+    if (_uid.isEmpty) return [];
     final result = await NotificationsTable().queryRows(
       queryFn: (q) => q
-          .eqOrNull('user_id', currentUserUid)
+          .eqOrNull('user_id', _uid)
           .order('created_at', ascending: false),
     );
     return result;
@@ -543,10 +548,10 @@ class DatabaseService {
 
   /// Get the most recent N sessions for the current user
   Future<List<SessionsRow>> getRecentSessions({int limit = 3}) async {
-    if (currentUserUid.isEmpty) return [];
+    if (_uid.isEmpty) return [];
     final result = await SessionsTable().queryRows(
       queryFn: (q) => q
-          .eqOrNull('user_id', currentUserUid)
+          .eqOrNull('user_id', _uid)
           .order('created_at', ascending: false)
           .limit(limit),
     );
@@ -558,7 +563,7 @@ class DatabaseService {
   /// Returns sessions for the current user in the current calendar week
   /// (Monday 00:00 UTC → now). Used to drive the streak day-dot row.
   Future<List<SessionsRow>> getSessionsThisWeek() async {
-    if (currentUserUid.isEmpty) return [];
+    if (_uid.isEmpty) return [];
     final now = DateTime.now().toUtc();
     // Monday of the current week at midnight UTC
     final weekStart = now
@@ -566,7 +571,7 @@ class DatabaseService {
         .copyWith(hour: 0, minute: 0, second: 0, millisecond: 0);
     final result = await SessionsTable().queryRows(
       queryFn: (q) => q
-          .eqOrNull('user_id', currentUserUid)
+          .eqOrNull('user_id', _uid)
           .gte('created_at', weekStart.toIso8601String())
           .order('created_at', ascending: true),
     );
@@ -579,18 +584,19 @@ class DatabaseService {
   /// weekly_challenge definition so title and xp_reward are available.
   /// Falls back to an empty list if either table doesn't exist yet.
   Future<List<Map<String, dynamic>>> getUserWeeklyChallenges(
-      String userId) async {
-    if (userId.isEmpty) return [];
+      [String? userId]) async {
+    final uid = userId?.isNotEmpty == true ? userId! : _uid;
+    if (uid.isEmpty) return [];
     try {
       // Fetch user_challenges for this user that are not completed
       final userRows = await SupaFlow.client
           .from('user_challenges')
           .select('id, challenge_id, type, progress, target, completed')
-          .eq('user_id', userId)
+          .eq('user_id', uid)
           .eq('completed', false)
           .limit(5);
 
-      if (userRows is! List || userRows.isEmpty) return [];
+      if (userRows.isEmpty) return [];
 
       // Collect challenge_ids to fetch definitions
       final ids = userRows
@@ -604,10 +610,8 @@ class DatabaseService {
             .from('weekly_challenges')
             .select('id, title, xp_reward')
             .inFilter('id', ids);
-        if (defRows is List) {
-          for (final d in defRows) {
-            defs[d['id'] as String] = Map<String, dynamic>.from(d);
-          }
+        for (final d in defRows) {
+          defs[d['id'] as String] = Map<String, dynamic>.from(d);
         }
       }
 

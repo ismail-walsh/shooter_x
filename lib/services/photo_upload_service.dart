@@ -33,7 +33,7 @@ class PhotoUploadService {
     required String folder,
   }) async {
     final uid = currentUserUid;
-    if (uid == null || uid.isEmpty) return null;
+    if (uid.isEmpty) return null;
 
     final ext = file.path.split('.').last.toLowerCase();
     final path = '$folder/$uid/${DateTime.now().millisecondsSinceEpoch}.$ext';

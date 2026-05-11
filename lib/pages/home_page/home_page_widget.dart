@@ -40,42 +40,65 @@ class _HomePageWidgetState extends State<HomePageWidget> {
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadWhenReady();
+  }
+
+  /// Waits until the Supabase client has a confirmed session before loading.
+  /// This handles the race where the page builds before the auth session
+  /// has propagated through the Supabase client internals.
+  Future<void> _loadWhenReady() async {
+    // If session is already available, load immediately.
+    if (SupaFlow.client.auth.currentUser != null) {
+      return _load();
+    }
+    // Otherwise wait up to 5 seconds for an auth state change.
+    try {
+      await SupaFlow.client.auth.onAuthStateChange
+          .where((s) => s.session != null)
+          .first
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {}
+    if (mounted) _load();
   }
 
   Future<void> _load() async {
-    final uid = currentUserUid;
+    final effectiveUid = SupaFlow.client.auth.currentUser?.id ?? currentUserUid;
+    debugPrint('[HomePage._load] effectiveUid="$effectiveUid"');
+
     try {
       final results = await Future.wait([
         // 0 — user profile (returns UsersRow? directly)
         databaseService.getCurrentUserProfile()
-            .catchError((_) => null),
+            .catchError((e) { debugPrint('[HomePage] profile error: $e'); return null; }),
         // 1 — streak row
         SupaFlow.client
             .from('user_streaks')
             .select()
-            .eq('user_id', uid)
+            .eq('user_id', effectiveUid)
             .maybeSingle()
-            .catchError((_) => null),
+            .catchError((e) { debugPrint('[HomePage] streak error: $e'); return null; }),
         // 2 — recent sessions
         databaseService.getRecentSessions(limit: 6)
-            .catchError((_) => <SessionsRow>[]),
+            .catchError((e) { debugPrint('[HomePage] sessions error: $e'); return <SessionsRow>[]; }),
         // 3 — leaderboard top 3
         databaseService.getLeaderboardByScope('overall')
-            .catchError((_) => <LeaderboardEntriesRow>[]),
+            .catchError((e) { debugPrint('[HomePage] leaderboard error: $e'); return <LeaderboardEntriesRow>[]; }),
         // 4 — upcoming events
         databaseService.getUpcomingEvents()
-            .catchError((_) => <EventsRow>[]),
+            .catchError((e) { debugPrint('[HomePage] events error: $e'); return <EventsRow>[]; }),
         // 5 — sessions this week for streak dots (last 7 days)
         databaseService.getSessionsThisWeek()
-            .catchError((_) => <SessionsRow>[]),
+            .catchError((e) { debugPrint('[HomePage] weekSessions error: $e'); return <SessionsRow>[]; }),
         // 6 — user's weekly challenges (joined with definitions)
-        databaseService.getUserWeeklyChallenges(uid)
-            .catchError((_) => <Map<String, dynamic>>[]),
-      ]).timeout(const Duration(seconds: 12), onTimeout: () => [
-        null, null, <SessionsRow>[], <LeaderboardEntriesRow>[], <EventsRow>[],
-        <SessionsRow>[], <Map<String, dynamic>>[],
-      ]);
+        databaseService.getUserWeeklyChallenges(effectiveUid)
+            .catchError((e) { debugPrint('[HomePage] challenges error: $e'); return <Map<String, dynamic>>[]; }),
+      ]).timeout(const Duration(seconds: 12), onTimeout: () {
+        debugPrint('[HomePage._load] TIMEOUT after 12s');
+        return [null, null, <SessionsRow>[], <LeaderboardEntriesRow>[], <EventsRow>[],
+          <SessionsRow>[], <Map<String, dynamic>>[]];
+      });
+
+      debugPrint('[HomePage._load] profile=${results[0]}, streak=${results[1]}, sessions count=${(results[2] as List).length}');
 
       if (!mounted) return;
 
@@ -104,7 +127,8 @@ class _HomePageWidgetState extends State<HomePageWidget> {
         _weeklyChallenges = results[6] as List<Map<String, dynamic>>;
         _loading = false;
       });
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('[HomePage._load] CAUGHT ERROR: $e\n$st');
       if (mounted) setState(() => _loading = false);
     }
   }

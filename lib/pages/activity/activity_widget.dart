@@ -44,13 +44,24 @@ class _ActivityWidgetState extends State<ActivityWidget>
       parent: _pickerAnim,
       curve: Curves.easeOut,
     );
-    _load();
+    _loadWhenReady();
   }
 
   @override
   void dispose() {
     _pickerAnim.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadWhenReady() async {
+    if (SupaFlow.client.auth.currentUser != null) return _load();
+    try {
+      await SupaFlow.client.auth.onAuthStateChange
+          .where((s) => s.session != null)
+          .first
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {}
+    if (mounted) _load();
   }
 
   Future<void> _load() async {
