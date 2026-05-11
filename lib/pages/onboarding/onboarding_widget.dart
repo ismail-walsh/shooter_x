@@ -1,9 +1,14 @@
 // onboarding_widget.dart
 // Replaces lib/pages/onboarding/onboarding_widget.dart
 
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/nav/nav.dart';
 
@@ -168,6 +173,7 @@ class _AuthSheetState extends State<_AuthSheet> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
+  bool _loading = false;
 
   @override
   void dispose() {
@@ -175,6 +181,68 @@ class _AuthSheetState extends State<_AuthSheet> {
     _passCtrl.dispose();
     _nameCtrl.dispose();
     super.dispose();
+  }
+
+  static String _rawNonce() {
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._';
+    final rand = Random.secure();
+    return List.generate(32, (_) => chars[rand.nextInt(chars.length)]).join();
+  }
+
+  void _showError(BuildContext ctx, String msg) {
+    if (!ctx.mounted) return;
+    ScaffoldMessenger.of(ctx)
+        .showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _doApple(BuildContext ctx) async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      final nonce = _rawNonce();
+      final hashedNonce = sha256.convert(utf8.encode(nonce)).toString();
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: hashedNonce,
+      );
+      final idToken = credential.identityToken;
+      if (idToken == null) throw Exception('No identity token from Apple');
+      await SupaFlow.client.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: idToken,
+        nonce: nonce,
+      );
+      if (ctx.mounted) Navigator.pop(ctx);
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code != AuthorizationErrorCode.canceled) {
+        _showError(ctx, 'Apple sign-in failed: ${e.message}');
+      }
+    } catch (e) {
+      _showError(ctx, 'Apple sign-in failed. Please try again.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _doGoogle(BuildContext ctx) async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      await SupaFlow.client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'shooterx://login-callback/',
+      );
+      // OAuth opens a browser — pop the sheet; auth state change handles navigation
+      if (ctx.mounted) Navigator.pop(ctx);
+    } catch (e) {
+      _showError(ctx, 'Google sign-in failed. Please try again.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -255,17 +323,24 @@ class _AuthSheetState extends State<_AuthSheet> {
               Expanded(child: Divider(color: Colors.white.withOpacity(0.1))),
             ]),
             const SizedBox(height: 14),
-            _SocialButton(
-              label: '${isLogin ? 'Sign in' : 'Sign up'} with Apple',
-              icon: Icons.apple_rounded,
-              onTap: () {},
-            ),
-            const SizedBox(height: 10),
-            _SocialButton(
-              label: '${isLogin ? 'Sign in' : 'Sign up'} with Google',
-              icon: Icons.g_mobiledata_rounded,
-              onTap: () {},
-            ),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: CircularProgressIndicator(),
+              )
+            else ...[
+              _SocialButton(
+                label: '${isLogin ? 'Sign in' : 'Sign up'} with Apple',
+                icon: Icons.apple_rounded,
+                onTap: () => _doApple(context),
+              ),
+              const SizedBox(height: 10),
+              _SocialButton(
+                label: '${isLogin ? 'Sign in' : 'Sign up'} with Google',
+                icon: Icons.g_mobiledata_rounded,
+                onTap: () => _doGoogle(context),
+              ),
+            ],
           ],
         ),
       ),

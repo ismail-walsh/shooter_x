@@ -69,6 +69,12 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 
+	<key>NSCameraUsageDescription</key>
+	<string>ShooterX uses your camera to scan and analyse shooting targets.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ShooterX needs photo library access to save target scan images.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>ShooterX needs photo library access to save target scan images.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

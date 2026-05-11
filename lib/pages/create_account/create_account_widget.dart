@@ -1,4 +1,9 @@
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '/auth/supabase_auth/auth_util.dart';
+import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
@@ -46,8 +51,66 @@ class _CreateAccountWidgetState extends State<CreateAccountWidget> {
   @override
   void dispose() {
     _model.dispose();
-
     super.dispose();
+  }
+
+  static String _rawNonce() {
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._';
+    final rand = Random.secure();
+    return List.generate(32, (_) => chars[rand.nextInt(chars.length)]).join();
+  }
+
+  Future<void> _doApple() async {
+    try {
+      final nonce = _rawNonce();
+      final hashedNonce = sha256.convert(utf8.encode(nonce)).toString();
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: hashedNonce,
+      );
+      final idToken = credential.identityToken;
+      if (idToken == null) throw Exception('No identity token');
+      GoRouter.of(context).prepareAuthEvent();
+      await SupaFlow.client.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: idToken,
+        nonce: nonce,
+      );
+      if (context.mounted) context.goNamedAuth(HomePageWidget.routeName, context.mounted);
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) return;
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Apple sign-in failed: ${e.message}')),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Apple sign-in failed. Please try again.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _doGoogle() async {
+    try {
+      GoRouter.of(context).prepareAuthEvent();
+      await SupaFlow.client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'shooterx://login-callback/',
+      );
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google sign-in failed. Please try again.')),
+        );
+      }
+    }
   }
 
   @override
@@ -738,14 +801,7 @@ class _CreateAccountWidgetState extends State<CreateAccountWidget> {
                                     padding: EdgeInsetsDirectional.fromSTEB(
                                         0.0, 0.0, 0.0, 16.0),
                                     child: FFButtonWidget(
-                                      onPressed: () {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Social sign-in requires additional configuration. Please use email/password.'),
-                                            backgroundColor: FlutterFlowTheme.of(context).secondaryText,
-                                          ),
-                                        );
-                                      },
+                                      onPressed: _doGoogle,
                                       text: 'Continue with Google',
                                       icon: FaIcon(
                                         FontAwesomeIcons.google,
@@ -804,14 +860,7 @@ class _CreateAccountWidgetState extends State<CreateAccountWidget> {
                                     padding: EdgeInsetsDirectional.fromSTEB(
                                         0.0, 0.0, 0.0, 16.0),
                                     child: FFButtonWidget(
-                                      onPressed: () {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Social sign-in requires additional configuration. Please use email/password.'),
-                                            backgroundColor: FlutterFlowTheme.of(context).secondaryText,
-                                          ),
-                                        );
-                                      },
+                                      onPressed: _doApple,
                                       text: 'Continue with Apple',
                                       icon: FaIcon(
                                         FontAwesomeIcons.apple,
