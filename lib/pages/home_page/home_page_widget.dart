@@ -80,8 +80,8 @@ class _HomePageWidgetState extends State<HomePageWidget> {
         // 2 — recent sessions
         databaseService.getRecentSessions(limit: 6)
             .catchError((e) { debugPrint('[HomePage] sessions error: $e'); return <SessionsRow>[]; }),
-        // 3 — leaderboard top 3
-        databaseService.getLeaderboardByScope('overall')
+        // 3 — top 3 shooters by XP from users table
+        databaseService.getTopShooters(limit: 3)
             .catchError((e) { debugPrint('[HomePage] leaderboard error: $e'); return <LeaderboardEntriesRow>[]; }),
         // 4 — upcoming events
         databaseService.getUpcomingEvents()
@@ -533,19 +533,28 @@ class _SessionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Gradient hero
+            // Hero: photo or gradient
             Stack(
               children: [
-                Container(
-                  height: 80,
-                  decoration: BoxDecoration(
-                    gradient: dt.grad,
-                    borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(14)),
-                  ),
-                  child: Center(
-                    child: Icon(dt.icon, color: dt.accent, size: 28),
-                  ),
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                  child: session.targetImageUrl != null && session.targetImageUrl!.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: session.targetImageUrl!,
+                          height: 80,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(
+                            height: 80,
+                            decoration: BoxDecoration(gradient: dt.grad),
+                            child: Center(child: Icon(dt.icon, color: dt.accent, size: 28)),
+                          ),
+                        )
+                      : Container(
+                          height: 80,
+                          decoration: BoxDecoration(gradient: dt.grad),
+                          child: Center(child: Icon(dt.icon, color: dt.accent, size: 28)),
+                        ),
                 ),
                 // Badge
                 Positioned(

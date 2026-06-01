@@ -196,6 +196,75 @@ class _AuthSheetState extends State<_AuthSheet> {
         .showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  /// Creates or repairs the `users` table row for the currently signed-in user.
+  /// Handles the case where a row exists with the right email but a stale/wrong id.
+  Future<void> _ensureUserProfile({
+    String? givenName,
+    String? familyName,
+  }) async {
+    final authUser = SupaFlow.client.auth.currentUser;
+    if (authUser == null) return;
+
+    // 1. Row already linked by auth id — nothing to do.
+    final byId = await SupaFlow.client
+        .from('users')
+        .select('id')
+        .eq('id', authUser.id)
+        .maybeSingle();
+    if (byId != null) return;
+
+    final email = authUser.email ?? '';
+
+    // 2. No row at all — create one.
+    final username = email.isNotEmpty
+        ? email.split('@').first
+        : 'user_${authUser.id.substring(0, 8)}';
+    final nameParts = [givenName, familyName]
+        .where((s) => s != null && s.isNotEmpty)
+        .toList();
+    final fullName = nameParts.isEmpty ? null : nameParts.join(' ');
+
+    await SupaFlow.client.from('users').insert({
+      'id': authUser.id,
+      'email': email,
+      'username': username,
+      if (fullName != null) 'full_name': fullName,
+      'password_hash': '',
+    });
+  }
+
+  Future<void> _doEmailAuth(BuildContext ctx) async {
+    final email = _emailCtrl.text.trim();
+    final password = _passCtrl.text;
+    if (email.isEmpty || password.isEmpty) {
+      _showError(ctx, 'Please enter your email and password.');
+      return;
+    }
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      if (widget.mode == 'login') {
+        await SupaFlow.client.auth.signInWithPassword(
+          email: email,
+          password: password,
+        );
+      } else {
+        final name = _nameCtrl.text.trim();
+        await SupaFlow.client.auth.signUp(
+          email: email,
+          password: password,
+          data: {'full_name': name.isEmpty ? null : name},
+        );
+        await _ensureUserProfile(givenName: name);
+      }
+      if (ctx.mounted) ctx.go('/homePage');
+    } catch (e) {
+      _showError(ctx, 'Sign-in error: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   Future<void> _doApple(BuildContext ctx) async {
     if (_loading) return;
     setState(() => _loading = true);
@@ -216,13 +285,17 @@ class _AuthSheetState extends State<_AuthSheet> {
         idToken: idToken,
         nonce: nonce,
       );
-      if (ctx.mounted) Navigator.pop(ctx);
+      await _ensureUserProfile(
+        givenName: credential.givenName,
+        familyName: credential.familyName,
+      );
+      if (ctx.mounted) ctx.go('/homePage');
     } on SignInWithAppleAuthorizationException catch (e) {
       if (e.code != AuthorizationErrorCode.canceled) {
         _showError(ctx, 'Apple sign-in failed: ${e.message}');
       }
     } catch (e) {
-      _showError(ctx, 'Apple sign-in failed. Please try again.');
+      _showError(ctx, 'Apple sign-in error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -236,7 +309,7 @@ class _AuthSheetState extends State<_AuthSheet> {
         OAuthProvider.google,
         redirectTo: 'shooterx://login-callback/',
       );
-      // OAuth opens a browser — pop the sheet; auth state change handles navigation
+      // OAuth opens a browser — navigation happens via deep link callback
       if (ctx.mounted) Navigator.pop(ctx);
     } catch (e) {
       _showError(ctx, 'Google sign-in failed. Please try again.');
@@ -305,10 +378,7 @@ class _AuthSheetState extends State<_AuthSheet> {
             const SizedBox(height: 14),
             _GreenButton(
               label: 'Continue',
-              onTap: () {
-                Navigator.pop(context);
-                context.goNamed('HomePage');
-              },
+              onTap: _loading ? () {} : () => _doEmailAuth(context),
             ),
             const SizedBox(height: 14),
             Row(children: [

@@ -128,6 +128,46 @@ class DatabaseService {
     return result;
   }
 
+  /// Update an existing session
+  Future<SessionsRow?> updateSession({
+    required String sessionId,
+    String? discipline,
+    String? firearm,
+    String? ammoType,
+    int? distance,
+    int? hits,
+    int? totalShots,
+    String? targetImageUrl,
+    String? notes,
+    String? weatherConditions,
+    Map<String, dynamic>? conditions,
+  }) async {
+    final data = <String, dynamic>{};
+    if (discipline != null) data['discipline'] = discipline;
+    if (firearm != null) data['firearm'] = firearm;
+    if (ammoType != null) data['ammo_type'] = ammoType;
+    if (distance != null) data['distance'] = distance;
+    if (notes != null) data['notes'] = notes;
+    if (weatherConditions != null) data['weather_conditions'] = weatherConditions;
+    if (conditions != null) data['conditions'] = conditions;
+    if (targetImageUrl != null) data['target_image_url'] = targetImageUrl;
+    if (hits != null) {
+      data['hits'] = hits;
+    }
+    if (totalShots != null) {
+      data['total_shots'] = totalShots;
+    }
+    if (hits != null && totalShots != null) {
+      data['accuracy'] = totalShots > 0 ? (hits / totalShots) * 100 : 0.0;
+    }
+    if (data.isEmpty) return null;
+    final result = await SessionsTable().update(
+      data: data,
+      matchingRows: (q) => q.eq('id', sessionId),
+    );
+    return result.isNotEmpty ? result.first : null;
+  }
+
   /// Get user's session statistics
   Future<Map<String, dynamic>> getUserSessionStats() async {
     if (_uid.isEmpty) return {};
@@ -521,6 +561,149 @@ class DatabaseService {
       },
     );
     return result;
+  }
+
+  /// Top shooters from the users table ranked by total_xp.
+  /// Returns synthetic LeaderboardEntriesRow objects so the UI doesn't change.
+  Future<List<LeaderboardEntriesRow>> getTopShooters({int limit = 3}) async {
+    final rows = await SupaFlow.client
+        .from('users')
+        .select('id, username, full_name, profile_img, total_xp, level')
+        .order('total_xp', ascending: false)
+        .limit(limit);
+    return (rows as List).asMap().entries.map((e) {
+      final r = e.value as Map<String, dynamic>;
+      return LeaderboardEntriesRow({
+        'id': r['id'],
+        'user_id': r['id'],
+        'display_name': (r['full_name'] as String?)?.isNotEmpty == true
+            ? r['full_name']
+            : r['username'] ?? 'Unknown',
+        'profile_img': r['profile_img'],
+        'xp': r['total_xp'] ?? 0,
+        'level': r['level'] ?? 0,
+        'rank': e.key + 1,
+        'score': ((r['total_xp'] ?? 0) as int).toDouble(),
+        'scope': 'overall',
+      });
+    }).toList();
+  }
+
+  /// Top shooters for the current calendar month, ranked by session count.
+  Future<List<LeaderboardEntriesRow>> getMonthlyTopShooters({int limit = 50}) async {
+    final now = DateTime.now().toUtc();
+    final monthStart = DateTime.utc(now.year, now.month, 1).toIso8601String();
+    try {
+      final sessions = await SupaFlow.client
+          .from('sessions')
+          .select('user_id')
+          .gte('created_at', monthStart);
+      if ((sessions as List).isEmpty) return getTopShooters(limit: limit);
+
+      final Map<String, int> counts = {};
+      for (final s in sessions) {
+        final uid = s['user_id'] as String?;
+        if (uid != null) counts[uid] = (counts[uid] ?? 0) + 1;
+      }
+      final sorted = counts.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      final topIds = sorted.take(limit).map((e) => e.key).toList();
+      if (topIds.isEmpty) return [];
+
+      final users = await SupaFlow.client
+          .from('users')
+          .select('id, username, full_name, profile_img, total_xp, level')
+          .inFilter('id', topIds);
+
+      return sorted.take(limit).toList().asMap().entries.map((e) {
+        final uid = e.value.key;
+        final r = (users as List).firstWhere(
+          (u) => u['id'] == uid,
+          orElse: () => <String, dynamic>{'id': uid, 'username': 'Unknown', 'total_xp': 0, 'level': 0},
+        ) as Map<String, dynamic>;
+        return LeaderboardEntriesRow({
+          'id': r['id'],
+          'user_id': r['id'],
+          'display_name': (r['full_name'] as String?)?.isNotEmpty == true
+              ? r['full_name']
+              : r['username'] ?? 'Unknown',
+          'profile_img': r['profile_img'],
+          'xp': r['total_xp'] ?? 0,
+          'level': r['level'] ?? 0,
+          'rank': e.key + 1,
+          'score': (counts[uid] ?? 0).toDouble(),
+          'scope': 'monthly',
+        });
+      }).toList();
+    } catch (_) {
+      return getTopShooters(limit: limit);
+    }
+  }
+
+  /// Top shooters in the current user's club(s), ranked by total XP.
+  Future<List<LeaderboardEntriesRow>> getClubTopShooters({String? clubId, int limit = 50}) async {
+    try {
+      String? targetClubId = clubId;
+      if (targetClubId == null || targetClubId.isEmpty) {
+        final memberships = await getUserClubMemberships();
+        if (memberships.isEmpty) return [];
+        targetClubId = memberships.first.clubId;
+      }
+      if (targetClubId == null) return [];
+
+      final members = await SupaFlow.client
+          .from('club_memberships')
+          .select('user_id')
+          .eq('club_id', targetClubId);
+      if ((members as List).isEmpty) return [];
+
+      final memberIds = members
+          .map((m) => m['user_id'] as String?)
+          .whereType<String>()
+          .toList();
+
+      final users = await SupaFlow.client
+          .from('users')
+          .select('id, username, full_name, profile_img, total_xp, level')
+          .inFilter('id', memberIds)
+          .order('total_xp', ascending: false)
+          .limit(limit);
+
+      return (users as List).asMap().entries.map((e) {
+        final r = e.value as Map<String, dynamic>;
+        return LeaderboardEntriesRow({
+          'id': r['id'],
+          'user_id': r['id'],
+          'display_name': (r['full_name'] as String?)?.isNotEmpty == true
+              ? r['full_name']
+              : r['username'] ?? 'Unknown',
+          'profile_img': r['profile_img'],
+          'xp': r['total_xp'] ?? 0,
+          'level': r['level'] ?? 0,
+          'rank': e.key + 1,
+          'score': ((r['total_xp'] ?? 0) as int).toDouble(),
+          'scope': 'club',
+        });
+      }).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Session dates (local time) over the last 12 weeks for the activity heatmap.
+  Future<List<DateTime>> getSessionDatesLast12Weeks() async {
+    if (_uid.isEmpty) return [];
+    final cutoff = DateTime.now().toUtc().subtract(const Duration(days: 84));
+    final rows = await SupaFlow.client
+        .from('sessions')
+        .select('created_at')
+        .eq('user_id', _uid)
+        .gte('created_at', cutoff.toIso8601String())
+        .order('created_at', ascending: true);
+    return (rows as List).map((r) {
+      final s = r['created_at'] as String?;
+      return s != null ? DateTime.parse(s).toLocal() : null;
+    }).whereType<DateTime>().toList();
   }
 
   // ==================== NOTIFICATIONS ====================

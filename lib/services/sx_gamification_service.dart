@@ -76,16 +76,16 @@ class SXGamificationService {
       try {
         final row = await SupaFlow.client
             .from('users')
-            .select('xp')
+            .select('total_xp')
             .eq('id', userId)
             .maybeSingle();
 
-        final currentXp = (row?['xp'] as int?) ?? 0;
+        final currentXp = (row?['total_xp'] as int?) ?? 0;
         final newXp = currentXp + amount;
         final newLevel = (newXp ~/ 1000).clamp(0, 60);
 
         await SupaFlow.client.from('users').update({
-          'xp': newXp,
+          'total_xp': newXp,
           'level': newLevel,
         }).eq('id', userId);
       } catch (_) {

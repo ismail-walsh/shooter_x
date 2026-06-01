@@ -40,6 +40,21 @@ class _SXRankXPBarState extends State<SXRankXPBar>
   }
 
   @override
+  void didUpdateWidget(SXRankXPBar old) {
+    super.didUpdateWidget(old);
+    if (old.xp != widget.xp || old.xpMax != widget.xpMax || old.level != widget.level) {
+      final target = widget.xpMax > 0 ? widget.xp / widget.xpMax : 0.0;
+      _progress = Tween<double>(
+        begin: _progress.value,
+        end: target.clamp(0.0, 1.0),
+      ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      _ctrl
+        ..reset()
+        ..forward();
+    }
+  }
+
+  @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
@@ -590,23 +605,39 @@ class _Challenge {
 
 // ─── ACTIVITY HEATMAP ────────────────────────────────────────────────────────
 class SXActivityHeatmap extends StatelessWidget {
-  const SXActivityHeatmap({super.key});
+  const SXActivityHeatmap({super.key, this.sessionDates = const []});
 
-  // 12 weeks × 7 days of fake activity data (0–3)
-  static final _data = List.generate(
-    84,
-    (i) {
-      final r = math.Random(i * 7 + 13);
-      if (i > 70) return 0; // recent weeks sparser
-      if (r.nextDouble() > 0.55) return 0;
-      return r.nextInt(3) + 1;
-    },
-  );
+  /// UTC dates of sessions in the last 12 weeks, used to colour grid cells.
+  final List<DateTime> sessionDates;
+
+  List<int> _buildGrid() {
+    const cols = 12;
+    const rows = 7;
+    final now = DateTime.now();
+    // Start of the 12-week window: Monday of the week 11 weeks ago
+    final todayWeekday = now.weekday; // 1=Mon … 7=Sun
+    final weekStart = now.subtract(Duration(days: todayWeekday - 1 + 77))
+        .copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0);
+
+    final data = List<int>.filled(cols * rows, 0);
+    for (final d in sessionDates) {
+      final diff = d.difference(weekStart).inDays;
+      if (diff < 0 || diff >= 84) continue;
+      final col = diff ~/ 7;
+      final row = diff % 7;
+      final idx = col * rows + row;
+      if (idx >= 0 && idx < data.length) {
+        data[idx] = math.min(data[idx] + 1, 3);
+      }
+    }
+    return data;
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
     final green = theme.primary;
+    final data = _buildGrid();
 
     Color cellColor(int level) {
       switch (level) {
@@ -653,18 +684,16 @@ class SXActivityHeatmap extends StatelessWidget {
               const cols = 12;
               const rows = 7;
               const gap = 3.0;
-              final cellSize =
-                  (constraints.maxWidth - (cols - 1) * gap) / cols;
 
               return SizedBox(
-                height: rows * cellSize + (rows - 1) * gap,
+                height: rows * ((constraints.maxWidth - (cols - 1) * gap) / cols) + (rows - 1) * gap,
                 child: Row(
                   children: List.generate(cols, (col) {
                     return Expanded(
                       child: Column(
                         children: List.generate(rows, (row) {
                           final idx = col * rows + row;
-                          final level = idx < _data.length ? _data[idx] : 0;
+                          final level = idx < data.length ? data[idx] : 0;
                           return Expanded(
                             child: Container(
                               margin: EdgeInsets.only(

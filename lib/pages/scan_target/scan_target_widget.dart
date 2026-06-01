@@ -23,16 +23,15 @@ class _ScanTargetWidgetState extends State<ScanTargetWidget> {
   int _shotCount = 5;
   int _hitCount = 5;
 
-  Future<void> _openCamera() async {
+  Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
     final XFile? file =
-        await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-    if (file == null) return; // user cancelled
+        await picker.pickImage(source: source, imageQuality: 85);
+    if (file == null) return;
     setState(() {
       _phase = _Phase.processing;
       _photo = File(file.path);
     });
-    // Brief pause so the transition feels deliberate
     await Future.delayed(const Duration(milliseconds: 600));
     if (mounted) setState(() => _phase = _Phase.result);
   }
@@ -111,28 +110,51 @@ class _ScanTargetWidgetState extends State<ScanTargetWidget> {
                 style: GoogleFonts.inter(
                     color: Colors.white.withOpacity(0.5), fontSize: 14)),
             const Spacer(),
-            // Shutter button
+            // Buttons row
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 48),
-              child: GestureDetector(
-                onTap: _openCamera,
-                child: Container(
-                  width: 72, height: 72,
-                  decoration: BoxDecoration(
-                    color: theme.primary,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                        color: Colors.white.withOpacity(0.3), width: 4),
-                    boxShadow: [
-                      BoxShadow(
-                          color: theme.primary.withOpacity(0.4),
-                          blurRadius: 20,
-                          spreadRadius: 2),
-                    ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Gallery button
+                  GestureDetector(
+                    onTap: () => _pickImage(ImageSource.gallery),
+                    child: Container(
+                      width: 54, height: 54,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: Colors.white.withOpacity(0.25), width: 2),
+                      ),
+                      child: const Icon(Icons.photo_library_rounded,
+                          color: Colors.white, size: 22),
+                    ),
                   ),
-                  child: const Icon(Icons.camera_alt_rounded,
-                      color: Colors.white, size: 28),
-                ),
+                  const SizedBox(width: 28),
+                  // Shutter button
+                  GestureDetector(
+                    onTap: () => _pickImage(ImageSource.camera),
+                    child: Container(
+                      width: 72, height: 72,
+                      decoration: BoxDecoration(
+                        color: theme.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: Colors.white.withOpacity(0.3), width: 4),
+                        boxShadow: [
+                          BoxShadow(
+                              color: theme.primary.withOpacity(0.4),
+                              blurRadius: 20,
+                              spreadRadius: 2),
+                        ],
+                      ),
+                      child: const Icon(Icons.camera_alt_rounded,
+                          color: Colors.white, size: 28),
+                    ),
+                  ),
+                  const SizedBox(width: 82), // balance the row
+                ],
               ),
             ),
           ]),

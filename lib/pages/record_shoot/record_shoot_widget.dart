@@ -1,13 +1,13 @@
-// record_shoot_widget.dart  — NEW SCREEN
-// Add to lib/pages/record_shoot/record_shoot_widget.dart
-
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import '/auth/supabase_auth/auth_util.dart';
-import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/services/sx_gamification_service.dart';
+import '/services/database_service.dart';
+import '/services/photo_upload_service.dart';
 import '/flutter_flow/nav/nav.dart';
 import '/components/sx_shared_widgets.dart';
 
@@ -50,23 +50,17 @@ class _RecordShootWidgetState extends State<RecordShootWidget> {
     setState(() => _shots = 0);
   }
 
-  Future<void> _save() async {
-    final elapsed = _stopwatch.elapsed.inSeconds;
-    try {
-      await SessionsTable().insert({
-        'user_id': currentUserUid,
-        'total_shots': _shots,
-        'hits': _shots,
-        'accuracy': 0.0,
-        'created_at': DateTime.now().toIso8601String(),
-        'conditions': {'duration_seconds': elapsed},
-      });
-      // Award XP and update streak
-      await SXGamificationService.onSessionCompleted(currentUserUid);
-    } catch (_) {
-      // Non-blocking: session saves best-effort
-    }
-    if (mounted) setState(() => _saved = true);
+  void _onSaveTapped() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SessionDetailSheet(
+        shots: _shots,
+        durationSeconds: _stopwatch.elapsed.inSeconds,
+        onSaved: () => setState(() => _saved = true),
+      ),
+    );
   }
 
   @override
@@ -225,7 +219,7 @@ class _RecordShootWidgetState extends State<RecordShootWidget> {
       if (!_stopwatch.isRunning && _stopwatch.elapsed.inSeconds > 0) ...[
         const SizedBox(width: 12),
         Expanded(child: GestureDetector(
-          onTap: () => _save(),
+          onTap: _onSaveTapped,
           child: Container(
             height: 54,
             decoration: BoxDecoration(
@@ -303,6 +297,340 @@ class _RecordShootWidgetState extends State<RecordShootWidget> {
         Text(value, style: GoogleFonts.inter(
             color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
       ],
+    );
+  }
+}
+
+// ── Detail sheet shown before saving ─────────────────────────────────────────
+
+class _SessionDetailSheet extends StatefulWidget {
+  const _SessionDetailSheet({
+    required this.shots,
+    required this.durationSeconds,
+    required this.onSaved,
+  });
+  final int shots;
+  final int durationSeconds;
+  final VoidCallback onSaved;
+
+  @override
+  State<_SessionDetailSheet> createState() => _SessionDetailSheetState();
+}
+
+class _SessionDetailSheetState extends State<_SessionDetailSheet> {
+  final _firearmCtrl = TextEditingController();
+  final _ammoCtrl = TextEditingController();
+  final _distanceCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  late final TextEditingController _hitsCtrl;
+
+  String? _discipline;
+  String? _weather;
+  File? _photo;
+  bool _saving = false;
+  bool _uploadingPhoto = false;
+
+  static const _disciplines = [
+    'Target Shooting', 'Pistol', 'Rifle', 'Shotgun',
+    'Sporting Clays', 'Hunting', 'Competition', 'Tactical',
+  ];
+  static const _weatherOptions = ['Clear', 'Sunny', 'Cloudy', 'Overcast', 'Light Rain'];
+
+  @override
+  void initState() {
+    super.initState();
+    _hitsCtrl = TextEditingController(text: '${widget.shots}');
+  }
+
+  @override
+  void dispose() {
+    _firearmCtrl.dispose();
+    _ammoCtrl.dispose();
+    _distanceCtrl.dispose();
+    _notesCtrl.dispose();
+    _hitsCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (file != null && mounted) setState(() => _photo = File(file.path));
+  }
+
+  Future<void> _save(BuildContext ctx) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      String? photoUrl;
+      if (_photo != null) {
+        setState(() => _uploadingPhoto = true);
+        photoUrl = await photoUploadService.uploadFile(
+          file: _photo!,
+          bucket: 'session-photos',
+          folder: 'targets',
+        );
+        setState(() => _uploadingPhoto = false);
+      }
+
+      final hits = int.tryParse(_hitsCtrl.text) ?? widget.shots;
+      final dist = int.tryParse(_distanceCtrl.text);
+      final accuracy = widget.shots > 0 ? (hits / widget.shots) * 100 : 0.0;
+
+      await databaseService.createSession(
+        discipline: _discipline ?? 'Target Shooting',
+        firearm: _firearmCtrl.text.trim(),
+        ammoType: _ammoCtrl.text.trim(),
+        distance: dist ?? 0,
+        hits: hits,
+        totalShots: widget.shots,
+        targetImageUrl: photoUrl,
+        conditions: {
+          'duration_seconds': widget.durationSeconds,
+          if (_weather != null) 'weather': _weather,
+          if (_notesCtrl.text.trim().isNotEmpty) 'notes': _notesCtrl.text.trim(),
+        },
+      );
+
+      await SXGamificationService.onSessionCompleted(currentUserUid);
+
+      if (ctx.mounted) {
+        Navigator.pop(ctx);
+        widget.onSaved();
+      }
+    } catch (e) {
+      if (ctx.mounted) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          SnackBar(content: Text('Error saving: $e')));
+      }
+    } finally {
+      if (mounted) setState(() { _saving = false; _uploadingPhoto = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF111111),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 40),
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Session Details',
+                    style: GoogleFonts.interTight(
+                        color: Colors.white, fontSize: 17,
+                        fontWeight: FontWeight.w700)),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 28, height: 28,
+                    decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        shape: BoxShape.circle),
+                    child: Icon(Icons.close_rounded,
+                        color: Colors.white.withOpacity(0.6), size: 16),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text('All fields are optional',
+                style: GoogleFonts.inter(
+                    color: Colors.white.withOpacity(0.35), fontSize: 12)),
+            const SizedBox(height: 18),
+
+            // Hits
+            _SheetField(
+              ctrl: _hitsCtrl,
+              hint: 'Hits on target',
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 10),
+
+            // Discipline
+            _SheetDropdown(
+              value: _discipline,
+              hint: 'Discipline',
+              options: _disciplines,
+              onChanged: (v) => setState(() => _discipline = v),
+              theme: theme,
+            ),
+            const SizedBox(height: 10),
+
+            // Firearm
+            _SheetField(ctrl: _firearmCtrl, hint: 'Firearm (e.g. Remington 700)'),
+            const SizedBox(height: 10),
+
+            // Ammo
+            _SheetField(ctrl: _ammoCtrl, hint: 'Ammo type (e.g. .308 Win)'),
+            const SizedBox(height: 10),
+
+            // Distance
+            _SheetField(
+              ctrl: _distanceCtrl,
+              hint: 'Distance (metres)',
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 10),
+
+            // Weather
+            _SheetDropdown(
+              value: _weather,
+              hint: 'Weather conditions',
+              options: _weatherOptions,
+              onChanged: (v) => setState(() => _weather = v),
+              theme: theme,
+            ),
+            const SizedBox(height: 10),
+
+            // Notes
+            _SheetField(ctrl: _notesCtrl, hint: 'Notes', maxLines: 3),
+            const SizedBox(height: 14),
+
+            // Photo picker
+            GestureDetector(
+              onTap: _pickPhoto,
+              child: Container(
+                width: double.infinity,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: theme.secondaryBackground,
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: _photo != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.file(_photo!, fit: BoxFit.cover,
+                            width: double.infinity))
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add_photo_alternate_rounded,
+                              color: Colors.white.withOpacity(0.4), size: 20),
+                          const SizedBox(width: 8),
+                          Text('Add session photo',
+                              style: GoogleFonts.inter(
+                                  color: Colors.white.withOpacity(0.4),
+                                  fontSize: 13)),
+                        ],
+                      ),
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // Save button
+            GestureDetector(
+              onTap: _saving ? null : () => _save(context),
+              child: Container(
+                width: double.infinity, height: 50,
+                decoration: BoxDecoration(
+                  color: _saving ? theme.primary.withOpacity(0.5) : theme.primary,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                alignment: Alignment.center,
+                child: _saving
+                    ? const SizedBox(width: 20, height: 20,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2))
+                    : Text('Save Session',
+                        style: GoogleFonts.interTight(
+                            color: Colors.white, fontSize: 16,
+                            fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetField extends StatelessWidget {
+  const _SheetField({required this.ctrl, required this.hint,
+      this.keyboardType, this.maxLines = 1});
+  final TextEditingController ctrl;
+  final String hint;
+  final TextInputType? keyboardType;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return TextField(
+      controller: ctrl,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+      cursorColor: theme.primary,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: GoogleFonts.inter(
+            color: Colors.white.withOpacity(0.3), fontSize: 14),
+        filled: true,
+        fillColor: theme.secondaryBackground,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(11),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(11),
+          borderSide: BorderSide(color: theme.primary.withOpacity(0.5)),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetDropdown extends StatelessWidget {
+  const _SheetDropdown({
+    required this.value, required this.hint,
+    required this.options, required this.onChanged, required this.theme,
+  });
+  final String? value;
+  final String hint;
+  final List<String> options;
+  final ValueChanged<String?> onChanged;
+  final FlutterFlowTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: theme.secondaryBackground,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          hint: Text(hint,
+              style: GoogleFonts.inter(
+                  color: Colors.white.withOpacity(0.3), fontSize: 14)),
+          dropdownColor: const Color(0xFF1A1A1A),
+          icon: Icon(Icons.keyboard_arrow_down_rounded,
+              color: Colors.white.withOpacity(0.4), size: 20),
+          isExpanded: true,
+          style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+          items: options.map((o) => DropdownMenuItem(
+            value: o,
+            child: Text(o),
+          )).toList(),
+          onChanged: onChanged,
+        ),
+      ),
     );
   }
 }

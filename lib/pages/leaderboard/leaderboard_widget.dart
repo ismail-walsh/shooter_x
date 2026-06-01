@@ -22,15 +22,11 @@ class LeaderboardWidget extends StatefulWidget {
 class _LeaderboardWidgetState extends State<LeaderboardWidget> {
   String _filter = 'Overall';
   static const _filters = ['Overall', 'Monthly', 'Club', 'Friends'];
-  static const _scopeMap = {
-    'Overall': 'overall',
-    'Monthly': 'monthly',
-    'Club': 'club',
-    'Friends': 'friends',
-  };
 
   bool _loading = true;
   List<LeaderboardEntriesRow> _entries = [];
+
+  String get _currentUid => SupaFlow.client.auth.currentUser?.id ?? currentUserUid;
 
   @override
   void initState() {
@@ -42,9 +38,20 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
   Future<void> _loadLeaderboard() async {
     setState(() => _loading = true);
     try {
-      final scope = _scopeMap[_filter] ?? 'overall';
-      final entries = await databaseService.getLeaderboardByScope(
-          scope, clubId: widget.clubId);
+      List<LeaderboardEntriesRow> entries;
+      switch (_filter) {
+        case 'Monthly':
+          entries = await databaseService.getMonthlyTopShooters();
+          break;
+        case 'Club':
+          entries = await databaseService.getClubTopShooters(clubId: widget.clubId);
+          break;
+        case 'Friends':
+          entries = [];
+          break;
+        default:
+          entries = await databaseService.getTopShooters(limit: 50);
+      }
       if (mounted) setState(() { _entries = entries; _loading = false; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
@@ -82,6 +89,31 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 48),
                   child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                ),
+              )
+            else if (_filter == 'Friends')
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(children: [
+                    Icon(Icons.people_outline_rounded,
+                        color: Colors.white.withOpacity(0.2), size: 48),
+                    const SizedBox(height: 12),
+                    Text('Friends leaderboard coming soon.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                            color: Colors.white.withOpacity(0.4), fontSize: 14)),
+                  ]),
+                ),
+              )
+            else if (_filter == 'Club' && _entries.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Text('Join a club to see club rankings.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                          color: Colors.white.withOpacity(0.4), fontSize: 14)),
                 ),
               )
             else if (_entries.length >= 3) ...[
@@ -151,7 +183,7 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(3, (pi) {
           final entry = podiumOrder[pi];
-          final isMe = entry.userId == currentUserUid;
+          final isMe = entry.userId == _currentUid;
           return Expanded(
             child: GestureDetector(
               onTap: isMe
@@ -267,7 +299,7 @@ class _LeaderboardWidgetState extends State<LeaderboardWidget> {
         children: rest.asMap().entries.map((e) {
           final i = e.key;
           final r = e.value;
-          final isMe = r.userId == currentUserUid;
+          final isMe = r.userId == _currentUid;
           return GestureDetector(
             onTap: isMe
                 ? null

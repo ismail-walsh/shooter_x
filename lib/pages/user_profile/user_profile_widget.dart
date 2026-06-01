@@ -93,6 +93,7 @@ class _UserProfileWidgetState extends State<UserProfileWidget> {
   // Gamification
   int _currentStreak = 0;
   int _bestStreak = 0;
+  List<DateTime> _heatmapDates = [];
 
   // Achievements
   Set<String> _earnedNames = {};
@@ -113,7 +114,7 @@ class _UserProfileWidgetState extends State<UserProfileWidget> {
       databaseService.getCurrentUserProfile().catchError((_) => null),
       databaseService.getUserSessions().catchError((_) => <SessionsRow>[]),
       databaseService
-          .getLeaderboardByScope('overall')
+          .getTopShooters(limit: 50)
           .catchError((_) => <LeaderboardEntriesRow>[]),
       UserAchievementsTable()
           .queryRows(queryFn: (q) => q.eq('user_id', uid))
@@ -128,9 +129,10 @@ class _UserProfileWidgetState extends State<UserProfileWidget> {
           .maybeSingle()
           .catchError((_) => null),
       databaseService.getUserClubs().catchError((_) => <ClubsRow>[]),
+      databaseService.getSessionDatesLast12Weeks().catchError((_) => <DateTime>[]),
     ]).timeout(const Duration(seconds: 12), onTimeout: () => [
       null, <SessionsRow>[], <LeaderboardEntriesRow>[], <UserAchievementsRow>[],
-      <AchievementsRow>[], null, <ClubsRow>[],
+      <AchievementsRow>[], null, <ClubsRow>[], <DateTime>[],
     ]);
 
     if (!mounted) return;
@@ -142,6 +144,7 @@ class _UserProfileWidgetState extends State<UserProfileWidget> {
     final allAch = results[4] as List<AchievementsRow>;
     final streak = results[5] as Map<String, dynamic>?;
     final clubs = results[6] as List<ClubsRow>;
+    final heatmapDates = results[7] as List<DateTime>;
 
     // Compute stats
     final count = sessions.length;
@@ -154,9 +157,10 @@ class _UserProfileWidgetState extends State<UserProfileWidget> {
     }
     if (count > 0) avg = avg / count;
 
+    final effectiveUid = SupaFlow.client.auth.currentUser?.id ?? uid;
     int rank = 0;
     for (int i = 0; i < board.length; i++) {
-      if (board[i].userId == uid) {
+      if (board[i].userId == effectiveUid) {
         rank = board[i].rank ?? (i + 1);
         break;
       }
@@ -180,6 +184,7 @@ class _UserProfileWidgetState extends State<UserProfileWidget> {
       _bestStreak = (streak?['best_streak'] as int?) ?? 0;
       _earnedNames = earnedNames;
       _primaryClubName = clubs.isNotEmpty ? clubs.first.name : null;
+      _heatmapDates = heatmapDates;
       _loading = false;
     });
     } catch (_) {
@@ -275,7 +280,7 @@ class _UserProfileWidgetState extends State<UserProfileWidget> {
               child: SXStreakCard(
                   streak: _currentStreak, bestStreak: _bestStreak),
             ),
-            const SliverToBoxAdapter(child: SXActivityHeatmap()),
+            SliverToBoxAdapter(child: SXActivityHeatmap(sessionDates: _heatmapDates)),
             SliverToBoxAdapter(
                 child: _buildAchievements(context, theme)),
             SliverToBoxAdapter(child: _buildMenu(context, theme)),

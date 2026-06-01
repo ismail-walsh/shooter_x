@@ -614,18 +614,28 @@ class _SessionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Gradient hero
+            // Hero: photo or gradient
             Stack(
               children: [
-                Container(
-                  height: 80,
-                  decoration: BoxDecoration(
-                    gradient: dt.grad,
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(14)),
-                  ),
-                  child:
-                      Center(child: Icon(dt.icon, color: dt.accent, size: 28)),
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                  child: session.targetImageUrl != null && session.targetImageUrl!.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: session.targetImageUrl!,
+                          height: 80,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(
+                            height: 80,
+                            decoration: BoxDecoration(gradient: dt.grad),
+                            child: Center(child: Icon(dt.icon, color: dt.accent, size: 28)),
+                          ),
+                        )
+                      : Container(
+                          height: 80,
+                          decoration: BoxDecoration(gradient: dt.grad),
+                          child: Center(child: Icon(dt.icon, color: dt.accent, size: 28)),
+                        ),
                 ),
                 Positioned(
                   top: 7,
@@ -634,8 +644,7 @@ class _SessionCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color:
-                          theme.primaryBackground.withOpacity(0.85),
+                      color: theme.primaryBackground.withOpacity(0.85),
                       borderRadius: BorderRadius.circular(5),
                     ),
                     child: Text(

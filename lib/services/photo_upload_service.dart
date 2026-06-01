@@ -27,6 +27,13 @@ class PhotoUploadService {
     return _uploadFile(File(xfile.path), bucket: bucket, folder: folder);
   }
 
+  /// Upload an already-picked [file] and return its public URL.
+  Future<String?> uploadFile({
+    required File file,
+    required String bucket,
+    required String folder,
+  }) => _uploadFile(file, bucket: bucket, folder: folder);
+
   Future<String?> _uploadFile(
     File file, {
     required String bucket,
